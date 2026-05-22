@@ -288,6 +288,125 @@
 .joyReset:hover{
   background:#35404d;
 }
+/* ============================================================
+   RESPONSIVE · MÓVIL Y TABLET
+   ============================================================ */
+
+@media (max-width: 820px), (max-height: 520px) {
+  #sidebar {
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    padding: 8px;
+  }
+
+  h1 {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .sub,
+  .mini {
+    display: none;
+  }
+
+  .section {
+    margin: 6px 0 8px;
+    padding: 7px;
+    border-radius: 9px;
+  }
+
+  .section h2 {
+    font-size: 10px;
+    margin-bottom: 5px;
+  }
+
+  .control {
+    margin: 4px 0 6px;
+  }
+
+  .control label {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  input[type=range] {
+    height: 18px;
+  }
+
+  .views {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+
+  button.viewBtn {
+    padding: 6px 4px;
+    font-size: 10px;
+    border-radius: 8px;
+  }
+
+  .legend {
+    font-size: 9px;
+    gap: 4px 8px;
+  }
+
+  #hud {
+    top: 6px;
+    right: 6px;
+    transform: scale(0.72);
+    transform-origin: top right;
+  }
+
+  #centerHint {
+    display: none;
+  }
+}
+
+/* En móvil vertical: controles arriba y velero debajo */
+@media (max-width: 700px) and (orientation: portrait) {
+  body {
+    flex-direction: column;
+  }
+
+  #sidebar {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: auto;
+    max-height: 38vh;
+    overflow: auto;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  #canvasWrap {
+    flex: 1;
+    min-height: 62vh;
+  }
+
+  #hud {
+    display: none;
+  }
+}
+
+/* En móvil horizontal: panel más estrecho */
+@media (max-height: 500px) and (orientation: landscape) {
+  #sidebar {
+    width: 250px;
+    min-width: 250px;
+    max-width: 250px;
+  }
+
+  #windCompass {
+    width: 62px;
+    height: 62px;
+  }
+
+  .hudBox {
+    min-width: 110px;
+    padding: 7px 8px;
+  }
+}
 </style>
 </head>
 <body>
@@ -674,7 +793,36 @@ initHelmJoystick();
     return x;
   };
   const sgn = v => v >= 0 ? 1 : -1;
+function fitViewScale(mode, baseScale) {
+  // La vista Rueda no se ajusta aquí porque es una vista subjetiva.
+  if (mode === 'helm') return baseScale;
 
+  const w = canvas.clientWidth || window.innerWidth || 800;
+  const h = canvas.clientHeight || window.innerHeight || 600;
+
+  let worldW = 430;
+  let worldH = 225;
+
+  if (mode === 'top') {
+    worldW = 390;
+    worldH = 360;
+  }
+
+  if (mode === 'free') {
+    worldW = 460;
+    worldH = 300;
+  }
+
+  const compactScreen = w < 760 || h < 520;
+  const margin = compactScreen ? 0.82 : 0.90;
+
+  const fittedScale = Math.min(
+    w / worldW,
+    h / worldH
+  ) * margin;
+
+  return Math.min(baseScale, fittedScale);
+}
   function rotY(p, aDeg){
     const a = rad(aDeg);
     const c = Math.cos(a), s = Math.sin(a);
@@ -748,27 +896,30 @@ function rotZ(p, aDeg){
   };
 }
 
-   if (mode === 'free') {
-    const a = rad(autoYaw);
-    const c = Math.cos(a);
-    const s = Math.sin(a);
+  if (mode === 'free') {
+  const a = rad(autoYaw);
+  const c = Math.cos(a);
+  const sinA = Math.sin(a);
 
-    const rx = x * c - z * s;
-    const rz = x * s + z * c;
+  const rx = x * c - z * sinA;
+  const rz = x * sinA + z * c;
 
-    x = rx;
-    z = rz;
+  x = rx;
+  z = rz;
 
-    depth = z;
+  depth = z;
 
-    // Cuando Auto llega al equivalente de la vista Este,
+  // Cuando Auto llega al equivalente de la vista Este,
   // elevamos visualmente babor y bajamos estribor.
   // En Oeste no lo aplicamos, porque ya está correcto.
-  const eastCorrection = Math.max(0, s);
+  const eastCorrection = Math.max(0, sinA);
+
+  const scale = fitViewScale('free', 2.4);
+  const k = scale / 2.4;
 
   return {
-    x: -x * 2.4,
-    y: -y * 2.4 + z * 0.25 + z * 0.65 * eastCorrection,
+    x: -x * scale,
+    y: -y * scale + z * 0.25 * k + z * 0.65 * eastCorrection * k,
     depth
   };
 }
@@ -777,51 +928,63 @@ function rotZ(p, aDeg){
     depth = y;
 
     // Esta vista estaba bien: NO tocar.
-    return {
-      x: x * 2.45,
-      y: -z * 2.45,
-      depth
-    };
+    const s = fitViewScale('top', 2.45);
+
+return {
+  x: x * s,
+  y: -z * s,
+  depth
+};
   }
 
    if (mode === 'north') {
     depth = -z;
 
-    return {
-      x: -x * 2.8,
-      y: -y * 2.8,
-      depth
-    };
+    const s = fitViewScale('side', 2.8);
+
+return {
+  x: -x * s,
+  y: -y * s,
+  depth
+};
   }
 
    if (mode === 'south') {
     depth = z;
 
-    return {
-      x: x * 2.8,
-      y: -y * 2.8,
-      depth
-    };
+    const s = fitViewScale('side', 2.8);
+
+return {
+  x: x * s,
+  y: -y * s,
+  depth
+};
   }
 
    if (mode === 'east') {
     depth = x;
 
-    return {
-      x: z * 2.8,
-      y: -y * 2.8 + x * 0.90,
-      depth
-    };
+    const s = fitViewScale('side', 2.8);
+const k = s / 2.8;
+
+return {
+  x: z * s,
+  y: -y * s + x * 0.90 * k,
+  depth
+};
   }
 
    if (mode === 'west') {
     depth = -x;
 
-    return {
-      x: -z * 2.8 - x * 0.45,
-      y: -y * 2.8,
-      depth
-    };
+    const s = fitViewScale('side', 2.8);
+const k = s / 2.8;
+
+return {
+  x: -z * s - x * 0.45 * k,
+  y: -y * s,
+  depth
+};
   }
 
    return {
@@ -1078,8 +1241,6 @@ function lockHalyardUnlessHeadToWind(id) {
   });
 }
 
-lockHalyardUnlessHeadToWind('mainHalyard');
-lockHalyardUnlessHeadToWind('genoaHalyard');
 lockHalyardUnlessHeadToWind('mainHalyard');
 lockHalyardUnlessHeadToWind('genoaHalyard');
   function derived(){
