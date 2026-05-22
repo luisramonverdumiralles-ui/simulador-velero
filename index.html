@@ -848,12 +848,17 @@ function rotZ(p, aDeg){
   let z = p.z;
   let depth = 0;
   if (mode === 'helm') {
-  // Cámara situada en la bañera, detrás de la rueda.
-  // El zoom no amplía el dibujo: acerca o aleja la posición
-  // de la cámara hacia popa.
+  // Vista Rueda con zoom real:
+  // 0   = velero completo desde popa
+  // 100 = vista cercana desde la bañera / rueda
+  const zoomT = clamp(state.helmZoom / 100, 0, 1);
+
   const camX = 0;
-  const camY = 18;
-  const camZ = lerp(-118, -190, state.helmZoom / 100);
+
+  // Al quitar zoom, la cámara se aleja hacia popa
+  // y sube un poco para poder ver el velero completo.
+  const camY = lerp(72, 18, zoomT);
+  const camZ = lerp(-420, -118, zoomT);
 
   const dx = x - camX;
   const dy = y - camY;
@@ -864,16 +869,14 @@ function rotZ(p, aDeg){
   const lookX = state.helmLookX / 260;
   const lookY = state.helmLookY / 260;
 
-  // Coordenadas angulares normalizadas.
-  // Restamos lookX/lookY para simular giro de mirada,
-  // no desplazamiento lateral de cámara.
   const nx = dx / dz - lookX;
   const ny = dy / dz - lookY;
 
-  // Distorsión gran angular / ojo de pez.
   const r = Math.hypot(nx, ny);
 
-  const fisheyeStrength = 1.35;
+  // Menos ojo de pez cuando estamos alejados;
+  // más gran angular cuando estamos en la bañera.
+  const fisheyeStrength = lerp(1.05, 1.35, zoomT);
 
   const warpedR = Math.atan(r * fisheyeStrength) / (Math.PI / 2);
 
@@ -885,13 +888,15 @@ function rotZ(p, aDeg){
     fy = (ny / r) * warpedR;
   }
 
-  const scale = 1080;
+  // También reducimos la escala cuando alejamos,
+  // para que el mástil y el casco entren completos en pantalla.
+  const helmScale = lerp(620, 1080, zoomT);
 
   depth = dz;
 
   return {
-    x: fx * scale,
-    y: -fy * scale,
+    x: fx * helmScale,
+    y: -fy * helmScale,
     depth
   };
 }
