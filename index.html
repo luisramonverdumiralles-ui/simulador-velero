@@ -462,13 +462,7 @@
 
   <div class="section">
     <h2>GÉNOVA · ESCOTAS, CARROS Y ENROLLADOR</h2>
-    <div class="control">
-  <label>
-    <span>Driza de génova (izar)</span>
-    <span id="v-genoaHalyard" class="value">0%</span>
-  </label>
-  <input id="genoaHalyard" type="range" min="0" max="100" step="1" value="0">
-</div>
+    
     <div class="control">
       <label><span>Escota génova babor</span><span id="v-genoaPortSheet" class="value">30%</span></label>
       <input id="genoaPortSheet" type="range" min="0" max="100" step="1" value="30">
@@ -486,10 +480,9 @@
       <input id="genoaStbdCar" type="range" min="0" max="100" step="1" value="55">
     </div>
     <div class="control">
-      <label><span>Enrollador</span><span id="v-furler" class="value">0%</span></label>
-      <input id="furler" type="range" min="0" max="100" step="1" value="0">
-    </div>
-  </div>
+  <label><span>Enrollador</span><span id="v-furler" class="value">100%</span></label>
+  <input id="furler" type="range" min="0" max="100" step="1" value="100">
+</div>
 
   <div class="section">
     <h2>VISTAS</h2>
@@ -603,8 +596,7 @@
     genoaPortCar: 55,
     genoaStbdSheet: 30,
     genoaStbdCar: 55,
-    genoaHalyard: 0,
-    furler: 0,
+    furler: 100,
 
 // Lado físico actual de la génova.
 // null = al iniciar, se coloca según el viento.
@@ -640,16 +632,15 @@ helmLookY: 0,
     genoaPortCar: v => `${Math.round(v)}`,
     genoaStbdSheet: v => `${Math.round(v)}%`,
     genoaStbdCar: v => `${Math.round(v)}`,
-    genoaHalyard: v => `${Math.round(v)}%`,
     furler: v => `${Math.round(v)}%`,
   };
 
-  const halyardControlIds = new Set(['mainHalyard', 'genoaHalyard']);
+  const specialRestrictedControlIds = new Set(['mainHalyard', 'furler']);
 
 controls.forEach(el => {
   const update = () => {
     // Las drizas se gestionan aparte, porque tienen bloqueo de izado.
-    if (halyardControlIds.has(el.id)) return;
+    if (specialRestrictedControlIds.has(el.id)) return;
 
     state[el.id] = parseFloat(el.value);
 
@@ -1191,7 +1182,7 @@ function showHoistWarning() {
   if (!hint) return;
 
   hint.innerHTML =
-    'Para izar la mayor o la génova, primero debes poner el barco <strong>aproado al viento</strong>. Orientación válida: ±' +
+    'Para izar la mayor o enrollar/desenrollar la génova, primero debes poner el barco <strong>aproado al viento</strong>. Orientación válida: ±' +
     HOIST_WIND_LIMIT +
     '° respecto al viento.';
 
@@ -1202,7 +1193,7 @@ function showHoistWarning() {
   }, 2200);
 }
 
-function setHalyardValue(id, value) {
+function setRestrictedControlValue(id, value) {
   const input = document.getElementById(id);
   const output = document.getElementById('v-' + id);
 
@@ -1221,33 +1212,56 @@ function setHalyardValue(id, value) {
   }
 }
 
-function lockHalyardUnlessHeadToWind(id) {
-  const input = document.getElementById(id);
+function lockMainHalyardUnlessHeadToWind() {
+  const input = document.getElementById('mainHalyard');
   if (!input) return;
 
-  // Inicializamos el estado y el texto visible.
-  setHalyardValue(id, parseFloat(input.value) || 0);
+  setRestrictedControlValue('mainHalyard', parseFloat(input.value) || 0);
 
   input.addEventListener('input', () => {
     const wantedValue = parseFloat(input.value) || 0;
-    const currentValue = state[id] || 0;
+    const currentValue = state.mainHalyard || 0;
 
-    // Arriar siempre se permite.
-    // Izar solo se permite aproado al viento.
+    // La mayor se puede arriar siempre.
+    // Solo se bloquea cuando intentas izarla.
     const isTryingToHoist = wantedValue > currentValue;
 
     if (isTryingToHoist && !isHeadToWindForHoist()) {
-      setHalyardValue(id, currentValue);
+      setRestrictedControlValue('mainHalyard', currentValue);
       showHoistWarning();
       return;
     }
 
-    setHalyardValue(id, wantedValue);
+    setRestrictedControlValue('mainHalyard', wantedValue);
   });
 }
 
-lockHalyardUnlessHeadToWind('mainHalyard');
-lockHalyardUnlessHeadToWind('genoaHalyard');
+function lockFurlerUnlessHeadToWind() {
+  const input = document.getElementById('furler');
+  if (!input) return;
+
+  setRestrictedControlValue('furler', parseFloat(input.value) || 100);
+
+  input.addEventListener('input', () => {
+    const wantedValue = parseFloat(input.value) || 0;
+    const currentValue = state.furler ?? 100;
+
+    // En este simulador, tanto enrollar como desenrollar
+    // requieren estar aproado al viento.
+    const isChangingFurler = wantedValue !== currentValue;
+
+    if (isChangingFurler && !isHeadToWindForHoist()) {
+      setRestrictedControlValue('furler', currentValue);
+      showHoistWarning();
+      return;
+    }
+
+    setRestrictedControlValue('furler', wantedValue);
+  });
+}
+
+lockMainHalyardUnlessHeadToWind();
+lockFurlerUnlessHeadToWind();
   function derived(){
     const trueWindDeg = norm180(state.windDir - state.heading);
     const trueWindRad = rad(trueWindDeg);
@@ -1310,7 +1324,7 @@ const maxOpen = clamp(awa*0.48, 6, 85);
     24 - outhaulTension * 20 + (100 - state.mainHalyard) * 0.05, 4,24
 );
 
-    const furlScale = clamp(1 - 0.82*(state.furler/100), 0.16, 1);
+    const furlScale = clamp(1 - (state.furler / 100), 0, 1);
    const activeGenoaTrim = genoaSideSign < 0
   ? state.genoaPortSheet
   : state.genoaStbdSheet;
@@ -1418,8 +1432,7 @@ const mainFoot =
     const headstayTop = {x:0, y:148, z:24};
 const bowTack = {x:0, y:3, z:148};
 
-const genoaHoist = clamp((state.genoaHalyard ?? 0) / 100, 0, 1);
-const genoaLP = 138 * d.furlScale * genoaHoist;
+const genoaLP = 138 * d.furlScale;
 
 const genoaStripes = [];
 const nGen = 25;
@@ -1430,15 +1443,13 @@ for (let i=0;i<nGen;i++){
   // La génova va subiendo por el estay.
   // Con driza al 0%, todos los puntos quedan abajo.
   // Con driza al 100%, llega hasta la cabeza del estay.
-  const hoistedT = t * genoaHoist;
-
   const luff = {
-    x: lerp(bowTack.x, headstayTop.x, hoistedT),
-    y: lerp(bowTack.y, headstayTop.y, hoistedT),
-    z: lerp(bowTack.z, headstayTop.z, hoistedT)
-  };
+  x: lerp(bowTack.x, headstayTop.x, t),
+  y: lerp(bowTack.y, headstayTop.y, t),
+  z: lerp(bowTack.z, headstayTop.z, t)
+};
       const localAngle = d.genoaAngle + d.genoaSideSign * d.genoaTwist * t;
-      const chord = lerp(genoaLP, 10 * genoaHoist, t) * Math.pow(1-t, 0.18);
+      const chord = lerp(genoaLP, 10 * d.furlScale, t) * Math.pow(1-t, 0.18);
       const aft = vecFromAft(localAngle, chord);
       const genoaFlap = d.genoaFlap || 0;
 
@@ -2095,7 +2106,7 @@ drawSmoothPath(outline, {
 }
  
 function drawGenoa(g, d, center, mode, autoYaw){
-  if (state.genoaHalyard <= 2) return;
+  if (d.furlScale <= 0.01) return;
     const luffs = g.genoaStripes.map(s => pointLocalToScreen(s.luff, center, mode, state.heading, autoYaw));
     const leech = g.genoaStripes.map(s => pointLocalToScreen(s.leech, center, mode, state.heading, autoYaw));
     const poly = [...luffs, ...leech.slice().reverse()];
