@@ -1739,9 +1739,531 @@ if (mode !== 'helm') {
     const rudTop = pointLocalToScreen(g.rudderTop, center, mode, state.heading, autoYaw);
     const rudBot = pointLocalToScreen(g.rudderBottom, center, mode, state.heading, autoYaw);
     drawLine(rudTop, rudBot, '#2e4758', 3);
+    drawDeckEdgeTrim(g, center, mode, autoYaw);
+    drawCoachroofAndWindows(g, center, mode, autoYaw);
+    drawDeckRails(g, center, mode, autoYaw);
+    drawPulpits(g, center, mode, autoYaw);
   }
 
- function drawRiggingAndDeckLines(g, d, center, mode, autoYaw){
+  function drawDeckRails(g, center, mode, autoYaw) {
+  function toScreen(p) {
+    return pointLocalToScreen(
+      p,
+      center,
+      mode,
+      state.heading,
+      autoYaw
+    );
+  }
+
+ // Altura de los candeleros sobre cubierta
+  const postBaseY = 3.5;
+  const postTopY = 17;
+
+  // Candeleros laterales aproximados siguiendo la cubierta.
+  // x negativo = babor; x positivo = estribor.
+  const railStations = [
+    { z: 128, halfWidth: 22 },
+    { z: 82,  halfWidth: 31 },
+    { z: 32,  halfWidth: 37 },
+    { z: -24, halfWidth: 36 },
+    { z: -78, halfWidth: 31 },
+    { z: -124, halfWidth: 22 }
+  ];
+
+  const portTop = [];
+  const stbdTop = [];
+
+  for (const s of railStations) {
+    const portBase = { x: -s.halfWidth, y: postBaseY, z: s.z };
+    const portHead = { x: -s.halfWidth, y: postTopY, z: s.z };
+
+    const stbdBase = { x: s.halfWidth, y: postBaseY, z: s.z };
+    const stbdHead = { x: s.halfWidth, y: postTopY, z: s.z };
+
+    const pBase = toScreen(portBase);
+    const pHead = toScreen(portHead);
+    const sBase = toScreen(stbdBase);
+    const sHead = toScreen(stbdHead);
+
+    // Candeleros
+    drawLine(pBase, pHead, 'rgba(235,240,245,0.82)', 1.4);
+    drawLine(sBase, sHead, 'rgba(235,240,245,0.82)', 1.4);
+
+    portTop.push(pHead);
+    stbdTop.push(sHead);
+  }
+
+  // Guardamancebos superiores
+  drawSmoothPath(portTop, {
+    stroke: 'rgba(235,240,245,0.72)',
+    lineWidth: 1.2
+  });
+
+  drawSmoothPath(stbdTop, {
+    stroke: 'rgba(235,240,245,0.72)',
+    lineWidth: 1.2
+  });
+
+  // Segunda línea de guardamancebos, algo más baja
+  const portMid = railStations.map(s =>
+    toScreen({ x: -s.halfWidth, y: 11, z: s.z })
+  );
+
+  const stbdMid = railStations.map(s =>
+    toScreen({ x: s.halfWidth, y: 11, z: s.z })
+  );
+
+  drawSmoothPath(portMid, {
+    stroke: 'rgba(235,240,245,0.42)',
+    lineWidth: 0.9
+  });
+
+  drawSmoothPath(stbdMid, {
+    stroke: 'rgba(235,240,245,0.42)',
+    lineWidth: 0.9
+  });
+}
+
+function drawPulpits(g, center, mode, autoYaw) {
+  function toScreen(p) {
+    return pointLocalToScreen(
+      p,
+      center,
+      mode,
+      state.heading,
+      autoYaw
+    );
+  }
+
+  const deckY = 3.5;
+  const railTopY = 18;
+  const railMidY = 11;
+
+  // ============================================================
+  // PÚLPITO DE PROA
+  // ============================================================
+
+  const bowPortAftBase = { x: -18, y: deckY, z: 124 };
+  const bowPortAftTop  = { x: -18, y: railTopY, z: 124 };
+
+  const bowPortFwdBase = { x: -10, y: deckY, z: 138 };
+  const bowPortFwdTop  = { x: -10, y: railTopY, z: 138 };
+
+  const bowStbdFwdBase = { x: 10, y: deckY, z: 138 };
+  const bowStbdFwdTop  = { x: 10, y: railTopY, z: 138 };
+
+  const bowStbdAftBase = { x: 18, y: deckY, z: 124 };
+  const bowStbdAftTop  = { x: 18, y: railTopY, z: 124 };
+
+  const bowPeakTop = { x: 0, y: railTopY + 1.5, z: 147 };
+  const bowPeakMid = { x: 0, y: railMidY + 1.2, z: 146 };
+
+  // Patas del púlpito
+  drawLine(toScreen(bowPortAftBase), toScreen(bowPortAftTop), 'rgba(235,240,245,0.92)', 1.5);
+  drawLine(toScreen(bowPortFwdBase), toScreen(bowPortFwdTop), 'rgba(235,240,245,0.92)', 1.5);
+  drawLine(toScreen(bowStbdFwdBase), toScreen(bowStbdFwdTop), 'rgba(235,240,245,0.92)', 1.5);
+  drawLine(toScreen(bowStbdAftBase), toScreen(bowStbdAftTop), 'rgba(235,240,245,0.92)', 1.5);
+
+  // Barra superior del púlpito
+  drawSmoothPath([
+    toScreen(bowPortAftTop),
+    toScreen(bowPortFwdTop),
+    toScreen(bowPeakTop),
+    toScreen(bowStbdFwdTop),
+    toScreen(bowStbdAftTop)
+  ], {
+    stroke: 'rgba(235,240,245,0.92)',
+    lineWidth: 1.35
+  });
+
+  // Barra intermedia del púlpito
+  drawSmoothPath([
+    toScreen({ x: -18, y: railMidY, z: 124 }),
+    toScreen({ x: -10, y: railMidY, z: 138 }),
+    toScreen(bowPeakMid),
+    toScreen({ x: 10, y: railMidY, z: 138 }),
+    toScreen({ x: 18, y: railMidY, z: 124 })
+  ], {
+    stroke: 'rgba(235,240,245,0.58)',
+    lineWidth: 1.0
+  });
+
+  // ============================================================
+  // PUSHPIT DE POPA
+  // ============================================================
+
+  const sternPortFwdBase = { x: -30, y: deckY, z: -102 };
+  const sternPortFwdTop  = { x: -30, y: railTopY, z: -102 };
+
+  const sternPortAftBase = { x: -22, y: deckY, z: -136 };
+  const sternPortAftTop  = { x: -22, y: railTopY, z: -136 };
+
+  const sternStbdAftBase = { x: 22, y: deckY, z: -136 };
+  const sternStbdAftTop  = { x: 22, y: railTopY, z: -136 };
+
+  const sternStbdFwdBase = { x: 30, y: deckY, z: -102 };
+  const sternStbdFwdTop  = { x: 30, y: railTopY, z: -102 };
+
+  // Patas del pushpit
+  drawLine(toScreen(sternPortFwdBase), toScreen(sternPortFwdTop), 'rgba(235,240,245,0.92)', 1.5);
+  drawLine(toScreen(sternPortAftBase), toScreen(sternPortAftTop), 'rgba(235,240,245,0.92)', 1.5);
+  drawLine(toScreen(sternStbdAftBase), toScreen(sternStbdAftTop), 'rgba(235,240,245,0.92)', 1.5);
+  drawLine(toScreen(sternStbdFwdBase), toScreen(sternStbdFwdTop), 'rgba(235,240,245,0.92)', 1.5);
+
+  // Barra superior portante de popa
+  drawSmoothPath([
+    toScreen(sternPortFwdTop),
+    toScreen(sternPortAftTop),
+    toScreen({ x: 0, y: railTopY + 0.5, z: -141 }),
+    toScreen(sternStbdAftTop),
+    toScreen(sternStbdFwdTop)
+  ], {
+    stroke: 'rgba(235,240,245,0.92)',
+    lineWidth: 1.35
+  });
+
+  // Barra intermedia de popa
+  drawSmoothPath([
+    toScreen({ x: -30, y: railMidY, z: -102 }),
+    toScreen({ x: -22, y: railMidY, z: -136 }),
+    toScreen({ x: 0, y: railMidY + 0.5, z: -140 }),
+    toScreen({ x: 22, y: railMidY, z: -136 }),
+    toScreen({ x: 30, y: railMidY, z: -102 })
+  ], {
+    stroke: 'rgba(235,240,245,0.58)',
+    lineWidth: 1.0
+  });
+
+  // Tramos laterales que conectan visualmente con los guardamancebos
+  drawSmoothPath([
+    toScreen({ x: -31, y: railTopY, z: -92 }),
+    toScreen(sternPortFwdTop),
+    toScreen(sternPortAftTop)
+  ], {
+    stroke: 'rgba(235,240,245,0.82)',
+    lineWidth: 1.1
+  });
+
+  drawSmoothPath([
+    toScreen(sternStbdAftTop),
+    toScreen(sternStbdFwdTop),
+    toScreen({ x: 31, y: railTopY, z: -92 })
+  ], {
+    stroke: 'rgba(235,240,245,0.82)',
+    lineWidth: 1.1
+  });
+}
+
+function drawDeckEdgeTrim(g, center, mode, autoYaw) {
+  function toScreen(p) {
+    return pointLocalToScreen(
+      p,
+      center,
+      mode,
+      state.heading,
+      autoYaw
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 1. BORDE EXTERIOR DE CUBIERTA
+  // ------------------------------------------------------------
+  // Sigue prácticamente el contorno real del casco en cubierta.
+  const sheerLocal = g.hullDeck.map(p => ({
+    x: p.x,
+    y: p.y + 1.2,
+    z: p.z
+  }));
+
+  const sheerPts = sheerLocal.map(toScreen);
+
+  drawSmoothPath(sheerPts, {
+    close: true,
+    stroke: 'rgba(42,64,82,0.92)',
+    lineWidth: 1.8
+  });
+
+  // ------------------------------------------------------------
+  // 2. REGALA / TOERAIL
+  // ------------------------------------------------------------
+  // Un poco más metida hacia dentro, para dar lectura de borde.
+  const toerailLocal = [
+    { x: 0,   y: 1.7, z: 154 },
+    { x: 20,  y: 1.7, z: 132 },
+    { x: 29,  y: 1.7, z: 88  },
+    { x: 34,  y: 1.7, z: 18  },
+    { x: 29,  y: 1.7, z: -88 },
+    { x: 17,  y: 1.7, z: -140 },
+    { x: -17, y: 1.7, z: -140 },
+    { x: -29, y: 1.7, z: -88 },
+    { x: -34, y: 1.7, z: 18  },
+    { x: -29, y: 1.7, z: 88  },
+    { x: -20, y: 1.7, z: 132 }
+  ];
+
+  const toerailPts = toerailLocal.map(toScreen);
+
+  // Línea principal de regala
+  drawSmoothPath(toerailPts, {
+    close: true,
+    stroke: 'rgba(176,148,102,0.92)',
+    lineWidth: 1.3
+  });
+
+  // Resalte fino interior para que se lea mejor
+  const toerailHighlightLocal = toerailLocal.map(p => ({
+    x: p.x * 0.985,
+    y: p.y + 0.25,
+    z: p.z * 0.985
+  }));
+
+  const toerailHighlightPts = toerailHighlightLocal.map(toScreen);
+
+  drawSmoothPath(toerailHighlightPts, {
+    close: true,
+    stroke: 'rgba(246,232,198,0.45)',
+    lineWidth: 0.9
+  });
+}
+
+function drawCoachroofAndWindows(g, center, mode, autoYaw) {
+  function toScreen(p) {
+    return pointLocalToScreen(
+      p,
+      center,
+      mode,
+      state.heading,
+      autoYaw
+    );
+  }
+
+  const showSideWindows = mode !== 'top';
+  const showWindowReflections = mode !== 'top' && mode !== 'helm';
+
+  // ============================================================
+  // CASETA MÁS UNIFICADA
+  // ============================================================
+  // Objetivo:
+  // - que la caseta se lea como una sola pieza;
+  // - techo menos flotante;
+  // - parabrisas más integrado;
+  // - ventanas laterales solo donde tenga sentido.
+
+  // ------------------------------------------------------------
+  // 1. CUERPO PRINCIPAL DE LA CASETA
+  // ------------------------------------------------------------
+
+  const coachBody = [
+    { x: -23, y: 4.2,  z: 82 },
+    { x: -18, y: 10.5, z: 70 },
+    { x: -15.5, y: 14.8, z: 42 },
+    { x: -13.5, y: 16.0, z: 8 },
+    { x: -13.2, y: 15.8, z: -28 },
+    { x: -15.0, y: 13.8, z: -48 },
+    { x: -18.5, y: 9.2,  z: -62 },
+    { x: -22, y: 4.2,  z: -70 },
+
+    { x: 22, y: 4.2,  z: -70 },
+    { x: 18.5, y: 9.2,  z: -62 },
+    { x: 15.0, y: 13.8, z: -48 },
+    { x: 13.2, y: 15.8, z: -28 },
+    { x: 13.5, y: 16.0, z: 8 },
+    { x: 15.5, y: 14.8, z: 42 },
+    { x: 18, y: 10.5, z: 70 },
+    { x: 23, y: 4.2,  z: 82 }
+  ];
+
+  drawSmoothPath(coachBody.map(toScreen), {
+    close: true,
+    fill: 'rgba(231,236,241,0.88)',
+    stroke: 'rgba(86,102,116,0.46)',
+    lineWidth: 1.0
+  });
+
+  // ------------------------------------------------------------
+  // 2. HOMBROS / TRANSICIÓN HACIA EL TECHO
+  // ------------------------------------------------------------
+  // Esta pieza hace que el techo no parezca una "tapa" flotando.
+  const coachShoulder = [
+    { x: -17.5, y: 12.6, z: 70 },
+    { x: -14.8, y: 15.2, z: 42 },
+    { x: -12.8, y: 16.2, z: 8 },
+    { x: -12.7, y: 16.1, z: -26 },
+    { x: -14.5, y: 14.4, z: -46 },
+    { x: -17.0, y: 11.2, z: -56 },
+
+    { x: 17.0, y: 11.2, z: -56 },
+    { x: 14.5, y: 14.4, z: -46 },
+    { x: 12.7, y: 16.1, z: -26 },
+    { x: 12.8, y: 16.2, z: 8 },
+    { x: 14.8, y: 15.2, z: 42 },
+    { x: 17.5, y: 12.6, z: 70 }
+  ];
+
+  drawSmoothPath(coachShoulder.map(toScreen), {
+    close: true,
+    fill: 'rgba(240,244,247,0.72)',
+    stroke: 'rgba(112,128,142,0.26)',
+    lineWidth: 0.8
+  });
+
+  // ------------------------------------------------------------
+  // 3. TECHO DEL COACHROOF
+  // ------------------------------------------------------------
+
+  const roof = [
+    { x: -13.8, y: 16.5, z: 66 },
+    { x:  13.8, y: 16.5, z: 66 },
+    { x:  12.8, y: 17.9, z: 34 },
+    { x:  11.4, y: 18.3, z: 4 },
+    { x:  10.6, y: 17.9, z: -30 },
+    { x: -10.6, y: 17.9, z: -30 },
+    { x: -11.4, y: 18.3, z: 4 },
+    { x: -12.8, y: 17.9, z: 34 }
+  ];
+
+  drawSmoothPath(roof.map(toScreen), {
+    close: true,
+    fill: 'rgba(247,249,250,0.94)',
+    stroke: 'rgba(98,114,128,0.42)',
+    lineWidth: 0.95
+  });
+
+  // Sombra suave bajo el techo para que quede unido al cuerpo
+  const roofShadow = [
+    { x: -11.8, y: 15.9, z: 58 },
+    { x:  11.8, y: 15.9, z: 58 },
+    { x:  10.8, y: 16.4, z: 2 },
+    { x:  10.0, y: 16.2, z: -24 },
+    { x: -10.0, y: 16.2, z: -24 },
+    { x: -10.8, y: 16.4, z: 2 }
+  ];
+
+  drawSmoothPath(roofShadow.map(toScreen), {
+    close: true,
+    fill: 'rgba(74,90,102,0.08)',
+    stroke: null
+  });
+
+  // Línea longitudinal muy suave
+  drawSmoothPath([
+    { x: 0, y: 18.3, z: 60 },
+    { x: 0, y: 18.6, z: 28 },
+    { x: 0, y: 18.4, z: -24 }
+  ].map(toScreen), {
+    stroke: 'rgba(255,255,255,0.22)',
+    lineWidth: 0.65
+  });
+
+  // ------------------------------------------------------------
+  // 4. PARABRISAS DELANTERO, MÁS INTEGRADO
+  // ------------------------------------------------------------
+
+  const windshield = [
+    { x: -12.2, y: 10.8, z: 67 },
+    { x:  12.2, y: 10.8, z: 67 },
+    { x:  10.2, y: 15.2, z: 58.5 },
+    { x: -10.2, y: 15.2, z: 58.5 }
+  ];
+
+  drawSmoothPath(windshield.map(toScreen), {
+    close: true,
+    fill: 'rgba(66,94,114,0.28)',
+    stroke: 'rgba(214,228,238,0.34)',
+    lineWidth: 0.75
+  });
+
+  drawLine(
+    toScreen({ x: 0, y: 11.4, z: 66.3 }),
+    toScreen({ x: 0, y: 14.8, z: 59.2 }),
+    'rgba(214,228,238,0.26)',
+    0.6
+  );
+
+  // ------------------------------------------------------------
+  // 5. LÍNEAS LATERALES DE CONTINUIDAD
+  // ------------------------------------------------------------
+  // Ayudan a leer la caseta como una sola pieza.
+  drawSmoothPath([
+    { x: -20.2, y: 8.8, z: 56 },
+    { x: -17.0, y: 12.4, z: 40 },
+    { x: -15.2, y: 13.2, z: 8 },
+    { x: -16.6, y: 10.8, z: -40 }
+  ].map(toScreen), {
+    stroke: 'rgba(118,132,146,0.20)',
+    lineWidth: 0.65
+  });
+
+  drawSmoothPath([
+    { x: 20.2, y: 8.8, z: 56 },
+    { x: 17.0, y: 12.4, z: 40 },
+    { x: 15.2, y: 13.2, z: 8 },
+    { x: 16.6, y: 10.8, z: -40 }
+  ].map(toScreen), {
+    stroke: 'rgba(118,132,146,0.20)',
+    lineWidth: 0.65
+  });
+
+  // ------------------------------------------------------------
+  // 6. VENTANAS LATERALES EMPOTRADAS
+  // ------------------------------------------------------------
+
+  if (showSideWindows) {
+    const portWindow = [
+      { x: -18.2, y: 9.6,  z: 44 },
+      { x: -16.0, y: 12.0, z: 38 },
+      { x: -15.3, y: 12.2, z: -18 },
+      { x: -17.1, y: 9.8,  z: -24 }
+    ];
+
+    const stbdWindow = [
+      { x: 18.2, y: 9.6,  z: 44 },
+      { x: 16.0, y: 12.0, z: 38 },
+      { x: 15.3, y: 12.2, z: -18 },
+      { x: 17.1, y: 9.8,  z: -24 }
+    ];
+
+    drawSmoothPath(portWindow.map(toScreen), {
+      close: true,
+      fill: mode === 'helm'
+        ? 'rgba(40,70,92,0.28)'
+        : 'rgba(40,70,92,0.44)',
+      stroke: 'rgba(198,214,226,0.16)',
+      lineWidth: 0.55
+    });
+
+    drawSmoothPath(stbdWindow.map(toScreen), {
+      close: true,
+      fill: mode === 'helm'
+        ? 'rgba(40,70,92,0.28)'
+        : 'rgba(40,70,92,0.44)',
+      stroke: 'rgba(198,214,226,0.16)',
+      lineWidth: 0.55
+    });
+
+    if (showWindowReflections) {
+      drawSmoothPath([
+        { x: -17.6, y: 10.4, z: 36 },
+        { x: -16.7, y: 11.1, z: 10 },
+        { x: -16.0, y: 11.0, z: -8 }
+      ].map(toScreen), {
+        stroke: 'rgba(235,245,255,0.13)',
+        lineWidth: 0.45
+      });
+
+      drawSmoothPath([
+        { x: 17.6, y: 10.4, z: 36 },
+        { x: 16.7, y: 11.1, z: 10 },
+        { x: 16.0, y: 11.0, z: -8 }
+      ].map(toScreen), {
+        stroke: 'rgba(235,245,255,0.13)',
+        lineWidth: 0.45
+      });
+    }
+  }
+}
+function drawRiggingAndDeckLines(g, d, center, mode, autoYaw){
     const mastBase = pointLocalToScreen(g.mastBase, center, mode, state.heading, autoYaw);
     const mastTop = pointLocalToScreen(g.mastTop, center, mode, state.heading, autoYaw);
     const headstayTop = pointLocalToScreen(g.headstayTop, center, mode, state.heading, autoYaw);
