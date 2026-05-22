@@ -1,0 +1,2308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador básico de velero – Mayor + Génova</title>
+<style>
+  :root{
+    --bg:#15181d;
+    --panel:#232830;
+    --panel2:#2b313b;
+    --text:#f2f4f7;
+    --muted:#aab4c3;
+    --accent:#40c4ff;
+    --accent2:#78e08f;
+    --warn:#ffd166;
+    --ropeMain:#ffd166;
+    --ropeGenoa:#40c4ff;
+    --ropeAux:#ff9f7a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    overflow:hidden;
+  }
+  #sidebar{
+    width:360px;
+    min-width:360px;
+    max-width:360px;
+    height:100vh;
+    overflow:auto;
+    background:linear-gradient(180deg,var(--panel),#1d2229);
+    border-right:1px solid rgba(255,255,255,.08);
+    padding:18px 18px 26px;
+  }
+  #canvasWrap{
+    position:relative;
+    flex:1;
+    min-width:0;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 20%),
+      linear-gradient(180deg, #0d5f78 0%, #0b4d63 36%, #08384c 100%);
+  }
+  #simCanvas{width:100%;height:100%;display:block}
+  h1{
+    margin:0 0 12px;
+    font-size:20px;
+    font-weight:700;
+    color:#fff;
+  }
+  .sub{
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.45;
+    margin-bottom:14px;
+  }
+  .section{
+    margin:14px 0 18px;
+    padding:12px 12px 10px;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;
+    background:rgba(255,255,255,.03);
+  }
+  .section h2{
+    margin:0 0 10px;
+    font-size:13px;
+    letter-spacing:.04em;
+    color:var(--accent);
+  }
+  .control{margin:8px 0 12px}
+  .control label{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    color:#e9edf2;
+    margin-bottom:4px;
+  }
+  .value{color:var(--accent);font-weight:700}
+  input[type=range]{width:100%}
+  .views{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
+  }
+  button.viewBtn{
+    padding:9px 8px;
+    border:0;
+    border-radius:10px;
+    background:var(--panel2);
+    color:#fff;
+    cursor:pointer;
+    font-size:12px;
+  }
+  button.viewBtn.active{
+    background:var(--accent);
+    color:#042431;
+    font-weight:700;
+  }
+  .legend{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px 12px;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+  .legend .key{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    white-space:nowrap;
+  }
+  .sw{
+    width:14px;height:3px;border-radius:99px;display:inline-block
+  }
+  .mini{
+    font-size:11px;
+    color:var(--muted);
+    line-height:1.4;
+  }
+  #hud{
+    position:absolute;
+    top:18px;
+    right:18px;
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+  }
+  .hudBox{
+    background:rgba(0,0,0,.38);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    padding:10px 12px;
+    min-width:142px;
+    backdrop-filter: blur(6px);
+  }
+  .hudTitle{
+    font-size:10px;
+    letter-spacing:.08em;
+    color:#d1d7df;
+    margin-bottom:6px;
+  }
+  .hudMain{
+    font-size:13px;
+    font-weight:700;
+  }
+  .hudSub{
+    margin-top:4px;
+    font-size:11px;
+    color:#d0dae6;
+    line-height:1.35;
+  }
+  #windCompass{
+    width:88px;height:88px;border-radius:50%;
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid rgba(255,255,255,.22);
+  }
+  #windArrow{
+    position:absolute;
+    font-size:34px;
+    line-height:1;
+    color:#ff6b6b;
+    transform-origin:center center;
+    user-select:none;
+  }
+  #centerHint{
+    position:absolute;
+    left:18px;
+    bottom:18px;
+    background:rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.1);
+    padding:10px 12px;
+    border-radius:12px;
+    max-width:360px;
+    font-size:11px;
+    color:#d6dde7;
+    line-height:1.45;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  #helmJoystickWrap{
+  position:relative;
+  width:190px;
+  height:190px;
+  margin:10px auto 8px;
+}
+
+#helmJoystick{
+  position:absolute;
+  left:25px;
+  top:25px;
+  width:140px;
+  height:140px;
+  border-radius:50%;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 0 24px rgba(0,0,0,.35);
+  touch-action:none;
+  user-select:none;
+  cursor:pointer;
+}
+
+#helmJoystick::before,
+#helmJoystick::after{
+  content:"";
+  position:absolute;
+  background:rgba(255,255,255,.18);
+}
+
+#helmJoystick::before{
+  left:50%;
+  top:12px;
+  width:1px;
+  height:116px;
+}
+
+#helmJoystick::after{
+  left:12px;
+  top:50%;
+  width:116px;
+  height:1px;
+}
+
+#helmJoystickKnob{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:34px;
+  height:34px;
+  margin-left:-17px;
+  margin-top:-17px;
+  border-radius:50%;
+  background:var(--accent);
+  border:3px solid rgba(255,255,255,.85);
+  box-shadow:0 6px 16px rgba(0,0,0,.35);
+  transform:translate(0px,0px);
+  pointer-events:none;
+}
+
+.joyLabel{
+  position:absolute;
+  font-size:10px;
+  color:var(--muted);
+  text-align:center;
+  pointer-events:none;
+}
+
+.joyTop{
+  top:0;
+  left:0;
+  right:0;
+}
+
+.joyBottom{
+  bottom:0;
+  left:0;
+  right:0;
+}
+
+.joyLeft{
+  left:0;
+  top:88px;
+}
+
+.joyRight{
+  right:0;
+  top:88px;
+}
+
+.joyReset{
+  width:100%;
+  margin-top:6px;
+  padding:8px 10px;
+  border:0;
+  border-radius:10px;
+  background:var(--panel2);
+  color:#fff;
+  cursor:pointer;
+  font-size:12px;
+}
+
+.joyReset:hover{
+  background:#35404d;
+}
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h1>Simulador de velero</h1>
+  <div class="sub">
+    Modelo visual simplificado de un velero <strong>con mayor y génova</strong>, rueda, piano en bañera, carros de escota, enrollador, rizos, catavientos y cinco vistas.
+  </div>
+
+  <div class="section">
+    <h2>ENTORNO Y GOBIERNO</h2>
+    <div class="control">
+      <label><span>Dirección del viento</span><span id="v-windDir" class="value">045°</span></label>
+      <input id="windDir" type="range" min="0" max="359" step="1" value="45">
+    </div>
+    <div class="control">
+      <label><span>Velocidad del viento</span><span id="v-windSpeed" class="value">12 kt</span></label>
+      <input id="windSpeed" type="range" min="0" max="35" step="1" value="12">
+    </div>
+    <div class="control">
+      <label><span>Rueda / timón</span><span id="v-wheel" class="value">0°</span></label>
+      <input id="wheel" type="range" min="-45" max="45" step="1" value="0">
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>MAYOR · PIANO Y BAÑERA</h2>
+    <div class="control">
+      <label><span>Escota de mayor</span><span id="v-mainSheet" class="value">22%</span></label>
+      <input id="mainSheet" type="range" min="0" max="100" step="1" value="22">
+    </div>
+    <div class="control">
+      <label><span>Carro de escota</span><span id="v-mainTraveler" class="value">0</span></label>
+      <input id="mainTraveler" type="range" min="-40" max="40" step="1" value="0">
+    </div>
+    <div class="control">
+      <label><span>Contra / vang</span><span id="v-vang" class="value">72%</span></label>
+      <input id="vang" type="range" min="0" max="100" step="1" value="72">
+    </div>
+    <div class="control">
+      <label><span>Pajarín / outhaul</span><span id="v-outhaul" class="value">78%</span></label>
+      <input id="outhaul" type="range" min="0" max="100" step="1" value="78">
+    </div>
+    <div class="control">
+      <label><span>Driza de mayor (izar)</span><span id="v-mainHalyard" class="value">0%</span></label>
+      <input id="mainHalyard" type="range" min="0" max="100" step="1" value="0">
+    </div>
+    <div class="control">
+      <label><span>Rizos</span><span id="v-reefLevel" class="value">0</span></label>
+      <input id="reefLevel" type="range" min="0" max="2" step="1" value="0">
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>GÉNOVA · ESCOTAS, CARROS Y ENROLLADOR</h2>
+    <div class="control">
+  <label>
+    <span>Driza de génova (izar)</span>
+    <span id="v-genoaHalyard" class="value">0%</span>
+  </label>
+  <input id="genoaHalyard" type="range" min="0" max="100" step="1" value="0">
+</div>
+    <div class="control">
+      <label><span>Escota génova babor</span><span id="v-genoaPortSheet" class="value">30%</span></label>
+      <input id="genoaPortSheet" type="range" min="0" max="100" step="1" value="30">
+    </div>
+    <div class="control">
+      <label><span>Carro génova babor</span><span id="v-genoaPortCar" class="value">55</span></label>
+      <input id="genoaPortCar" type="range" min="0" max="100" step="1" value="55">
+    </div>
+    <div class="control">
+      <label><span>Escota génova estribor</span><span id="v-genoaStbdSheet" class="value">30%</span></label>
+      <input id="genoaStbdSheet" type="range" min="0" max="100" step="1" value="30">
+    </div>
+    <div class="control">
+      <label><span>Carro génova estribor</span><span id="v-genoaStbdCar" class="value">55</span></label>
+      <input id="genoaStbdCar" type="range" min="0" max="100" step="1" value="55">
+    </div>
+    <div class="control">
+      <label><span>Enrollador</span><span id="v-furler" class="value">0%</span></label>
+      <input id="furler" type="range" min="0" max="100" step="1" value="0">
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>VISTAS</h2>
+    <div class="views">
+      <button class="viewBtn active" data-view="top">Arriba</button>
+      <button class="viewBtn" data-view="north">Norte</button>
+      <button class="viewBtn" data-view="south">Sur</button>
+      <button class="viewBtn" data-view="east">Este</button>
+      <button class="viewBtn" data-view="west">Oeste</button>
+      <button class="viewBtn" data-view="free">Auto</button>
+      <button class="viewBtn" data-view="helm">Rueda</button>
+    </div>
+    <div class="mini" style="margin-top:8px">
+      Las vistas son fijas alrededor de la embarcación. La opción <strong>Auto</strong> gira lentamente para inspección general. La vista <strong>Rueda</strong> simula la perspectiva de un navegante desde la bañera mirando hacia proa.
+    </div>
+  </div>
+
+  <div class="section">
+    <div id="helmControls" class="section" style="display:none">
+  <h2>VISTA RUEDA · POSICIÓN Y MIRADA</h2>
+
+  <div class="control">
+    <label>
+      <span>Zoom desde la rueda</span>
+      <span id="v-helmZoom" class="value">35</span>
+    </label>
+    <input id="helmZoom" type="range" min="0" max="100" step="1" value="35">
+  </div>
+
+  <div class="control">
+  <label>
+    <span>Mirada con joystick</span>
+    <span class="value">
+      X: <span id="v-helmLookX">0</span> · Y: <span id="v-helmLookY">0</span>
+    </span>
+  </label>
+
+  <div id="helmJoystickWrap">
+    <div class="joyLabel joyTop">Arriba</div>
+    <div class="joyLabel joyBottom">Abajo</div>
+    <div class="joyLabel joyLeft">Izquierda</div>
+    <div class="joyLabel joyRight">Derecha</div>
+
+    <div id="helmJoystick">
+      <div id="helmJoystickKnob"></div>
+    </div>
+  </div>
+
+  <button id="helmLookReset" class="joyReset" type="button">
+    Centrar mirada
+  </button>
+</div>
+
+  <div class="mini" style="margin-top:8px">
+    Estos controles solo afectan a la vista <strong>Rueda</strong>. El zoom acerca o aleja la posición desde la bañera; la mirada cambia hacia dónde mira el navegante, sin desplazar lateralmente la cámara.
+  </div>
+</div>
+    <h2>REFERENCIAS VISUALES</h2>
+    <div class="legend">
+      <div class="key"><span class="sw" style="background:var(--ropeMain)"></span> Mayor / piano</div>
+      <div class="key"><span class="sw" style="background:var(--ropeGenoa)"></span> Génova / winches</div>
+      <div class="key"><span class="sw" style="background:#ffffff"></span> Jarcia firme</div>
+      <div class="key"><span class="sw" style="background:#9cff6d"></span> Catavientos OK</div>
+      <div class="key"><span class="sw" style="background:#ff8b7d"></span> Catavientos alterados</div>
+      <div class="key"><span class="sw" style="background:#ff6b6b"></span> Viento</div>
+    </div>
+    <div class="mini" style="margin-top:8px">
+      El comportamiento es deliberadamente <strong>simple y lineal</strong>: no pretende sustituir un simulador aerodinámico real, pero sí ayudar a visualizar el efecto de escotas, carros, twist, enrollador y rumbo.
+    </div>
+  </div>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="simCanvas"></canvas>
+
+  <div id="hud">
+    <div class="hudBox">
+      <div class="hudTitle">VIENTO</div>
+      <div id="windCompass">  <div id="windArrow">↓</div>  </div>
+
+      <div class="hudSub"><span id="hudWindText">045° · 12 kt</span></div>
+    </div>
+    <div class="hudBox">
+      <div class="hudTitle">ESTADO</div>
+      <div id="hudMain" class="hudMain">Amura de estribor</div>
+      <div id="hudSub" class="hudSub">Twist mayor 0° · Twist génova 0°</div>
+    </div>
+  </div>
+
+  <div id="centerHint">
+    Arrastra los deslizadores. La <strong>mayor</strong> se regula con escota, carro, contra, pajarín, driza y rizos en el <strong>piano</strong>. La <strong>génova</strong> usa escotas y carros por banda, más el <strong>enrollador</strong>, guiados a los <strong>winches de popa</strong>.
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const state = {
+    windDir: 45,
+    windSpeed: 12,
+    wheel: 0,
+    mainSheet: 22,
+    mainTraveler: 0,
+    vang: 72,
+    outhaul: 78,
+    mainHalyard: 0,
+    reefLevel: 0,
+    genoaPortSheet: 30,
+    genoaPortCar: 55,
+    genoaStbdSheet: 30,
+    genoaStbdCar: 55,
+    genoaHalyard: 0,
+    furler: 0,
+
+// Lado físico actual de la génova.
+// null = al iniciar, se coloca según el viento.
+// -1 = génova a babor
+//  1 = génova a estribor
+genoaSideSign: null,
+genoaBlocked: false,
+
+// Controles propios de la vista Rueda
+helmZoom: 35,
+helmLookX: 0,
+helmLookY: 0,
+
+  view: 'top',
+  heading: 0,
+  boatSpeed: 0,
+  heelAngle: 0,
+  autoViewAngle: 0
+};
+
+  const controls = document.querySelectorAll('input[type="range"]');
+  const fmt = {
+    windDir: v => `${String(Math.round(v)).padStart(3,'0')}°`,
+    windSpeed: v => `${Math.round(v)} kt`,
+    wheel: v => `${Math.round(v)}°`,
+    mainSheet: v => `${Math.round(v)}%`,
+    mainTraveler: v => `${Math.round(v)}`,
+    vang: v => `${Math.round(v)}%`,
+    outhaul: v => `${Math.round(v)}%`,
+    mainHalyard: v => `${Math.round(v)}%`,
+    reefLevel: v => `${Math.round(v)}`,
+    genoaPortSheet: v => `${Math.round(v)}%`,
+    genoaPortCar: v => `${Math.round(v)}`,
+    genoaStbdSheet: v => `${Math.round(v)}%`,
+    genoaStbdCar: v => `${Math.round(v)}`,
+    genoaHalyard: v => `${Math.round(v)}%`,
+    furler: v => `${Math.round(v)}%`,
+  };
+
+  const halyardControlIds = new Set(['mainHalyard', 'genoaHalyard']);
+
+controls.forEach(el => {
+  const update = () => {
+    // Las drizas se gestionan aparte, porque tienen bloqueo de izado.
+    if (halyardControlIds.has(el.id)) return;
+
+    state[el.id] = parseFloat(el.value);
+
+    const out = document.getElementById('v-' + el.id);
+    if (out) {
+      out.textContent = fmt[el.id]
+        ? fmt[el.id](state[el.id])
+        : String(state[el.id]);
+    }
+  };
+
+  el.addEventListener('input', update);
+  update();
+});
+
+  function updateHelmControlsVisibility() {
+  const helmControls = document.getElementById('helmControls');
+  if (!helmControls) return;
+
+  helmControls.style.display = state.view === 'helm'
+    ? 'block'
+    : 'none';
+}
+
+    document.querySelectorAll('.viewBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+    document.querySelectorAll('.viewBtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    state.view = btn.dataset.view;
+
+    updateHelmControlsVisibility();
+    function setHelmLookFromJoystick(xValue, yValue) {
+  state.helmLookX = clamp(xValue, -100, 100);
+  state.helmLookY = clamp(yValue, -100, 100);
+
+  const outX = document.getElementById('v-helmLookX');
+  const outY = document.getElementById('v-helmLookY');
+
+  if (outX) outX.textContent = Math.round(state.helmLookX);
+  if (outY) outY.textContent = Math.round(state.helmLookY);
+
+  const knob = document.getElementById('helmJoystickKnob');
+
+  if (knob) {
+    const maxPx = 52;
+
+    const px = state.helmLookX / 100 * maxPx;
+    const py = -state.helmLookY / 100 * maxPx;
+
+    knob.style.transform = `translate(${px}px, ${py}px)`;
+  }
+}
+
+function initHelmJoystick() {
+  const joystick = document.getElementById('helmJoystick');
+  const resetBtn = document.getElementById('helmLookReset');
+
+  if (!joystick) return;
+
+  let dragging = false;
+
+  function updateFromPointer(ev) {
+    const rect = joystick.getBoundingClientRect();
+
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    let dx = ev.clientX - cx;
+    let dy = ev.clientY - cy;
+
+    const max = rect.width * 0.38;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > max) {
+      dx = dx / dist * max;
+      dy = dy / dist * max;
+    }
+
+    const xValue = dx / max * 100;
+
+    // En pantalla, subir es dy negativo.
+    // En la lógica de mirada, positivo significa mirar hacia arriba.
+    const yValue = -dy / max * 100;
+
+    setHelmLookFromJoystick(xValue, yValue);
+  }
+
+  joystick.addEventListener('pointerdown', ev => {
+    dragging = true;
+    joystick.setPointerCapture(ev.pointerId);
+    updateFromPointer(ev);
+  });
+
+  joystick.addEventListener('pointermove', ev => {
+    if (!dragging) return;
+    updateFromPointer(ev);
+  });
+
+  joystick.addEventListener('pointerup', () => {
+    dragging = false;
+  });
+
+  joystick.addEventListener('pointercancel', () => {
+    dragging = false;
+  });
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      setHelmLookFromJoystick(0, 0);
+    });
+  }
+
+  setHelmLookFromJoystick(state.helmLookX, state.helmLookY);
+}
+
+initHelmJoystick();
+  });
+});
+
+    updateHelmControlsVisibility();
+
+
+  function resize(){
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(canvas.clientWidth * dpr);
+    canvas.height = Math.floor(canvas.clientHeight * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const rad = d => d*Math.PI/180;
+  const deg = r => r*180/Math.PI;
+  const norm360 = a => ((a%360)+360)%360;
+  const norm180 = a => {
+    let x = norm360(a);
+    if (x > 180) x -= 360;
+    return x;
+  };
+  const sgn = v => v >= 0 ? 1 : -1;
+
+  function rotY(p, aDeg){
+    const a = rad(aDeg);
+    const c = Math.cos(a), s = Math.sin(a);
+    return {
+      x: p.x*c + p.z*s,
+      y: p.y,
+      z: -p.x*s + p.z*c
+    };
+  }
+function rotZ(p, aDeg){
+    const a = rad(aDeg);
+    const c = Math.cos(a), s = Math.sin(a);
+    return {
+      x: p.x*c - p.y*s,
+      y: p.x*s + p.y*c,
+      z: p.z
+    };
+}
+
+  function projectWorld(p, mode, autoYaw = 0) {
+  let x = p.x;
+  let y = p.y;
+  let z = p.z;
+  let depth = 0;
+  if (mode === 'helm') {
+  // Cámara situada en la bañera, detrás de la rueda.
+  // El zoom no amplía el dibujo: acerca o aleja la posición
+  // de la cámara hacia popa.
+  const camX = 0;
+  const camY = 18;
+  const camZ = lerp(-118, -190, state.helmZoom / 100);
+
+  const dx = x - camX;
+  const dy = y - camY;
+  const dz = Math.max(12, z - camZ);
+
+  // La mirada no desplaza la cámara.
+  // Cambia hacia dónde mira el navegante desde esa posición.
+  const lookX = state.helmLookX / 260;
+  const lookY = state.helmLookY / 260;
+
+  // Coordenadas angulares normalizadas.
+  // Restamos lookX/lookY para simular giro de mirada,
+  // no desplazamiento lateral de cámara.
+  const nx = dx / dz - lookX;
+  const ny = dy / dz - lookY;
+
+  // Distorsión gran angular / ojo de pez.
+  const r = Math.hypot(nx, ny);
+
+  const fisheyeStrength = 1.35;
+
+  const warpedR = Math.atan(r * fisheyeStrength) / (Math.PI / 2);
+
+  let fx = 0;
+  let fy = 0;
+
+  if (r > 0.0001) {
+    fx = (nx / r) * warpedR;
+    fy = (ny / r) * warpedR;
+  }
+
+  const scale = 1080;
+
+  depth = dz;
+
+  return {
+    x: fx * scale,
+    y: -fy * scale,
+    depth
+  };
+}
+
+   if (mode === 'free') {
+    const a = rad(autoYaw);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+
+    const rx = x * c - z * s;
+    const rz = x * s + z * c;
+
+    x = rx;
+    z = rz;
+
+    depth = z;
+
+    // Cuando Auto llega al equivalente de la vista Este,
+  // elevamos visualmente babor y bajamos estribor.
+  // En Oeste no lo aplicamos, porque ya está correcto.
+  const eastCorrection = Math.max(0, s);
+
+  return {
+    x: -x * 2.4,
+    y: -y * 2.4 + z * 0.25 + z * 0.65 * eastCorrection,
+    depth
+  };
+}
+
+   if (mode === 'top') {
+    depth = y;
+
+    // Esta vista estaba bien: NO tocar.
+    return {
+      x: x * 2.45,
+      y: -z * 2.45,
+      depth
+    };
+  }
+
+   if (mode === 'north') {
+    depth = -z;
+
+    return {
+      x: -x * 2.8,
+      y: -y * 2.8,
+      depth
+    };
+  }
+
+   if (mode === 'south') {
+    depth = z;
+
+    return {
+      x: x * 2.8,
+      y: -y * 2.8,
+      depth
+    };
+  }
+
+   if (mode === 'east') {
+    depth = x;
+
+    return {
+      x: z * 2.8,
+      y: -y * 2.8 + x * 0.90,
+      depth
+    };
+  }
+
+   if (mode === 'west') {
+    depth = -x;
+
+    return {
+      x: -z * 2.8 - x * 0.45,
+      y: -y * 2.8,
+      depth
+    };
+  }
+
+   return {
+    x: x * 2.4,
+    y: -z * 2.4,
+    depth: 0
+  };
+}
+
+  function screenPoint(p, mode, center, autoYaw=0){
+    const q = projectWorld(p, mode, autoYaw);
+    return {x:center.x + q.x, y:center.y + q.y, depth:q.depth};
+  }
+
+  function pointLocalToScreen(p, center, mode, headingDeg, autoYaw=0){
+    const heeled = rotZ(p, state.heelAngle);
+
+    // En la vista desde la rueda, la cámara va "dentro" del barco.
+    // Por eso no rotamos el barco con el rumbo, porque el navegante
+    // siempre mira hacia la proa.
+    const viewPoint = mode === 'helm'
+      ? heeled
+      : rotY(heeled, headingDeg);
+
+    return screenPoint(viewPoint, mode, center, autoYaw);
+}
+
+  function drawPath(points, opts={}){
+    if (!points.length) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for(let i=1;i<points.length;i++) ctx.lineTo(points[i].x, points[i].y);
+    if (opts.close) ctx.closePath();
+    if (opts.fill){
+      ctx.fillStyle = opts.fill;
+      ctx.globalAlpha = opts.fillAlpha ?? 1;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (opts.stroke){
+      ctx.strokeStyle = opts.stroke;
+      ctx.lineWidth = opts.lineWidth ?? 1.4;
+      ctx.setLineDash(opts.dash || []);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  function drawSmoothPath(points, opts={}) {
+  if (!points.length) return;
+
+  ctx.save();
+  ctx.beginPath();
+
+  if (opts.close && points.length > 2) {
+    const last = points[points.length - 1];
+    const first = points[0];
+
+    ctx.moveTo(
+      (last.x + first.x) / 2,
+      (last.y + first.y) / 2
+    );
+
+    for (let i = 0; i < points.length; i++) {
+      const current = points[i];
+      const next = points[(i + 1) % points.length];
+
+      const mid = {
+        x: (current.x + next.x) / 2,
+        y: (current.y + next.y) / 2
+      };
+
+      ctx.quadraticCurveTo(current.x, current.y, mid.x, mid.y);
+    }
+
+    ctx.closePath();
+  } else {
+    ctx.moveTo(points[0].x, points[0].y);
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const current = points[i];
+      const next = points[i + 1];
+
+      const mid = {
+        x: (current.x + next.x) / 2,
+        y: (current.y + next.y) / 2
+      };
+
+      ctx.quadraticCurveTo(current.x, current.y, mid.x, mid.y);
+    }
+
+    const last = points[points.length - 1];
+    ctx.lineTo(last.x, last.y);
+  }
+
+  if (opts.fill) {
+    ctx.fillStyle = opts.fill;
+    ctx.globalAlpha = opts.fillAlpha ?? 1;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  if (opts.stroke) {
+    ctx.strokeStyle = opts.stroke;
+    ctx.lineWidth = opts.lineWidth ?? 1.4;
+    ctx.setLineDash(opts.dash || []);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+  function drawLine(a,b,style='#fff',w=1.4,dash=[]){
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(a.x,a.y);
+    ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle = style;
+    ctx.lineWidth = w;
+    ctx.setLineDash(dash);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCircle(p,r,fill,stroke,w=1){
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    if (fill){
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke){
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = w;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawText(text, p, color='#fff', align='left', size=11, bg=null){
+    ctx.save();
+    ctx.font = `${size}px Inter, Segoe UI, Arial, sans-serif`;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    const padX = 5, padY = 3;
+    const m = ctx.measureText(text);
+    const w = m.width + padX*2, h = size + padY*2;
+    if (bg){
+      const x = align === 'left' ? p.x : align === 'center' ? p.x - w/2 : p.x - w;
+      const y = p.y - h/2;
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 6);
+      ctx.fill();
+    }
+    ctx.fillStyle = color;
+    ctx.fillText(text, p.x, p.y);
+    ctx.restore();
+  }
+
+  function vecFromAft(angleDeg, len){
+    const a = rad(angleDeg);
+    return {
+      x: Math.sin(a)*len,
+      y: 0,
+      z: -Math.cos(a)*len
+    };
+  }
+
+  function vAdd(a,b){ return {x:a.x+b.x, y:a.y+b.y, z:a.z+b.z}; }
+  function vSub(a,b){ return {x:a.x-b.x, y:a.y-b.y, z:a.z-b.z}; }
+  function vMul(a,k){ return {x:a.x*k, y:a.y*k, z:a.z*k}; }
+  function vLen(a){ return Math.hypot(a.x,a.y,a.z); }
+  function vNorm(a){ const l=vLen(a)||1; return {x:a.x/l,y:a.y/l,z:a.z/l}; }
+
+  function windLocalFromDeg(){
+    return norm180(state.windDir - state.heading);
+  }
+
+  const HOIST_WIND_LIMIT = 25;
+
+function isHeadToWindForHoist() {
+  return Math.abs(windLocalFromDeg()) <= HOIST_WIND_LIMIT;
+}
+
+const defaultCenterHint = document.getElementById('centerHint')?.innerHTML || '';
+let hoistWarningTimer = null;
+
+function showHoistWarning() {
+  const hint = document.getElementById('centerHint');
+  if (!hint) return;
+
+  hint.innerHTML =
+    'Para izar la mayor o la génova, primero debes poner el barco <strong>aproado al viento</strong>. Orientación válida: ±' +
+    HOIST_WIND_LIMIT +
+    '° respecto al viento.';
+
+  clearTimeout(hoistWarningTimer);
+
+  hoistWarningTimer = setTimeout(() => {
+    hint.innerHTML = defaultCenterHint;
+  }, 2200);
+}
+
+function setHalyardValue(id, value) {
+  const input = document.getElementById(id);
+  const output = document.getElementById('v-' + id);
+
+  const safeValue = clamp(value, 0, 100);
+
+  state[id] = safeValue;
+
+  if (input) {
+    input.value = safeValue;
+  }
+
+  if (output) {
+    output.textContent = fmt[id]
+      ? fmt[id](safeValue)
+      : String(safeValue);
+  }
+}
+
+function lockHalyardUnlessHeadToWind(id) {
+  const input = document.getElementById(id);
+  if (!input) return;
+
+  // Inicializamos el estado y el texto visible.
+  setHalyardValue(id, parseFloat(input.value) || 0);
+
+  input.addEventListener('input', () => {
+    const wantedValue = parseFloat(input.value) || 0;
+    const currentValue = state[id] || 0;
+
+    // Arriar siempre se permite.
+    // Izar solo se permite aproado al viento.
+    const isTryingToHoist = wantedValue > currentValue;
+
+    if (isTryingToHoist && !isHeadToWindForHoist()) {
+      setHalyardValue(id, currentValue);
+      showHoistWarning();
+      return;
+    }
+
+    setHalyardValue(id, wantedValue);
+  });
+}
+
+lockHalyardUnlessHeadToWind('mainHalyard');
+lockHalyardUnlessHeadToWind('genoaHalyard');
+lockHalyardUnlessHeadToWind('mainHalyard');
+lockHalyardUnlessHeadToWind('genoaHalyard');
+  function derived(){
+    const trueWindDeg = norm180(state.windDir - state.heading);
+    const trueWindRad = rad(trueWindDeg);
+    const twv = { x: Math.sin(trueWindRad) * state.windSpeed, z: -Math.cos(trueWindRad) * state.windSpeed };
+    const vwv = { x: 0, z: -state.boatSpeed };
+    const awv = { x: twv.x + vwv.x, z: twv.z + vwv.z };
+    const aws = Math.hypot(awv.x, awv.z);
+    const rel = deg(Math.atan2(awv.x, -awv.z));
+const sailSign = rel >= 0 ? -1 : 1;
+
+// El viento relativo indica qué banda "pediría" la génova.
+const desiredGenoaSideSign = sailSign;
+
+// Al arrancar, colocamos la génova en el lado correcto.
+if (state.genoaSideSign === null) {
+  state.genoaSideSign = desiredGenoaSideSign;
+}
+
+// Si el viento pide cambiar de lado, no dejamos pasar la génova
+// mientras la escota antigua siga cazada.
+// En este simulador: valor bajo = escota cazada; valor alto = escota largada.
+if (state.genoaSideSign !== desiredGenoaSideSign) {
+  const oldSheet = state.genoaSideSign < 0
+    ? state.genoaPortSheet
+    : state.genoaStbdSheet;
+
+  const oldSheetReleased = oldSheet >= 75;
+
+  if (oldSheetReleased) {
+    state.genoaSideSign = desiredGenoaSideSign;
+    state.genoaBlocked = false;
+  } else {
+    state.genoaBlocked = true;
+  }
+} else {
+  state.genoaBlocked = false;
+}
+
+const genoaSideSign = state.genoaSideSign;
+
+const awa = Math.abs(rel);
+const maxOpen = clamp(awa*0.48, 6, 85);
+
+    const mainBaseOpen = lerp(5, maxOpen, state.mainSheet/100);
+    let mainAngle = clamp(sailSign*mainBaseOpen + state.mainTraveler*0.55, -maxOpen, maxOpen);
+
+    const mainTwist = clamp(
+      4
+      + (100 - state.vang) * 0.22
+      + state.mainSheet * 0.16
+      + Math.max(0, -state.mainTraveler*sailSign) * 0.08
+      + (100 - state.mainHalyard) * 0.07
+      + state.reefLevel * 2.0,
+      3, 34
+    );
+
+    const outhaulTension = state.outhaul / 100;
+
+    const mainCamber = clamp(
+    24 - outhaulTension * 20 + (100 - state.mainHalyard) * 0.05, 4,24
+);
+
+    const furlScale = clamp(1 - 0.82*(state.furler/100), 0.16, 1);
+   const activeGenoaTrim = genoaSideSign < 0
+  ? state.genoaPortSheet
+  : state.genoaStbdSheet;
+
+const activeGenoaCar = genoaSideSign < 0
+  ? state.genoaPortCar
+  : state.genoaStbdCar;
+
+    const genoaBaseOpen = lerp(8, clamp(maxOpen + 12, 10, 92), activeGenoaTrim/100);
+    const genoaAngle = genoaSideSign * clamp(genoaBaseOpen, 7, 92);
+
+    const genoaTwist = clamp(
+   5
+   + activeGenoaCar * 0.16
+   + activeGenoaTrim * 0.06
+   + state.furler * 0.05
+   + state.windSpeed * 0.04,
+   3, 28
+);
+
+    const mainIdeal = clamp(maxOpen*0.82, 0, 80);
+    const genoaIdeal = clamp(maxOpen*0.90, 0, 88);
+    const mainErr = Math.abs(Math.abs(mainAngle) - mainIdeal);
+const genoaErr = Math.abs(Math.abs(genoaAngle) - genoaIdeal);
+
+// Intensidad de flameo visual.
+// 0 = vela estable.
+// 1 = flameo fuerte.
+const mainFlap = clamp((mainErr - 7) / 18, 0, 1);
+
+const genoaFlap = clamp(
+  (genoaErr - 7) / 18 + (state.genoaBlocked ? 0.55 : 0),
+  0,
+  1
+);
+
+const anglePower = clamp(1 - (mainErr*0.012 + genoaErr*0.010), 0.08, 1);
+    const pointOfSail = clamp(Math.sin(rad(clamp(awa, 15, 165))), 0.25, 1);
+    const sailArea = (0.65 + 0.35*(state.mainHalyard/100)) * (1 - state.reefLevel*0.18) + furlScale*0.75;
+    const boatSpeed = clamp(aws * pointOfSail * anglePower * sailArea * 0.24, 0, state.windSpeed * 0.8);
+
+    // CÁLCULO DE ABATIMIENTO: 
+    // Es mayor con mucho viento lateral y poca velocidad de barco.
+    const leewayFactor = 9; // Ajusta este número para aumentar o reducir el efecto
+    const leeway = (state.windSpeed * Math.sin(rad(awa)) * leewayFactor) / (boatSpeed + 0.5);
+    const leewayAngle = clamp(leeway, 0, 15) * -sailSign; // Máximo 15 grados de deriva
+
+      return {
+        rel, awa, aws, sailSign, genoaSideSign, maxOpen,
+        mainAngle, mainTwist, mainCamber,
+        genoaAngle, genoaTwist, furlScale,
+        activeGenoaTrim, activeGenoaCar,
+        mainErr, genoaErr,
+        mainFlap, genoaFlap,
+        boatSpeed,
+        leewayAngle,
+        // Calculamos el embolsamiento de la génova según la escota
+        genoaCamber: clamp(12 - activeGenoaTrim * 0.08, 4, 14),
+        // Escora: depende del viento lateral, área de vela y potencia
+        heelAngle: clamp((aws * Math.sin(rad(awa)) * sailArea * anglePower * 0.40) * -sailSign, -35, 35)
+      };
+}
+
+  function buildGeometry(d){
+    const reefScale = d.reefLevelScale = [1,0.80,0.63][state.reefLevel] ?? 1;
+    const mainHoist = 138 * (state.mainHalyard/100) * reefScale;
+   // Pajarín:
+// 0% = pujamen algo más suelto, más bolsa
+// 100% = pujamen más tenso, vela más plana
+const outhaulTension = state.outhaul / 100;
+
+const mainFoot =
+  115 *
+  (0.96 + 0.04 * outhaulTension) *
+  (0.92 + 0.08 * (state.mainHalyard / 100)) *
+  [1, 0.90, 0.78][state.reefLevel];
+    const tack = {x:0, y:18, z:16};
+    const head = {x:0, y:18 + mainHoist, z:18};
+    const mastTop = {x:0, y:166, z:20};
+    const mastBase = {x:0, y:0, z:18};
+    const boomAngle = d.mainAngle;
+    const mainClewBase = vAdd(tack, vecFromAft(boomAngle, mainFoot));
+    mainClewBase.y = 18 + state.reefLevel*6;
+
+    const mainStripes = [];
+    const nMain = 25;
+    for (let i=0;i<nMain;i++){
+      const t = i/(nMain-1);
+      const luff = {
+        x: lerp(tack.x, head.x, t),
+        y: lerp(tack.y, head.y, t),
+        z: lerp(tack.z, head.z, t)
+      };
+      const localAngle = boomAngle + (d.sailSign) * d.mainTwist * t;
+      const chord = lerp(mainFoot, 10, t);
+      const aft = vecFromAft(localAngle, chord);
+      const leech = {
+        x: luff.x + aft.x,
+        y: luff.y + aft.y,
+        z: luff.z + aft.z
+      };
+      mainStripes.push({luff, leech, t, angle:localAngle});
+    }
+
+    const headstayTop = {x:0, y:148, z:24};
+const bowTack = {x:0, y:3, z:148};
+
+const genoaHoist = clamp((state.genoaHalyard ?? 0) / 100, 0, 1);
+const genoaLP = 138 * d.furlScale * genoaHoist;
+
+const genoaStripes = [];
+const nGen = 25;
+
+for (let i=0;i<nGen;i++){
+  const t = i/(nGen-1);
+
+  // La génova va subiendo por el estay.
+  // Con driza al 0%, todos los puntos quedan abajo.
+  // Con driza al 100%, llega hasta la cabeza del estay.
+  const hoistedT = t * genoaHoist;
+
+  const luff = {
+    x: lerp(bowTack.x, headstayTop.x, hoistedT),
+    y: lerp(bowTack.y, headstayTop.y, hoistedT),
+    z: lerp(bowTack.z, headstayTop.z, hoistedT)
+  };
+      const localAngle = d.genoaAngle + d.genoaSideSign * d.genoaTwist * t;
+      const chord = lerp(genoaLP, 10 * genoaHoist, t) * Math.pow(1-t, 0.18);
+      const aft = vecFromAft(localAngle, chord);
+      const genoaFlap = d.genoaFlap || 0;
+
+const genoaFlapPhase =
+  performance.now() * 0.022 +
+  t * 15;
+
+const genoaFlapAmount =
+  Math.sin(genoaFlapPhase) *
+  genoaFlap *
+  lerp(5, 12, t);
+
+const leech = {
+  x:
+    luff.x + aft.x +
+    Math.sin(rad(localAngle + 90 * d.genoaSideSign)) * genoaFlapAmount,
+
+  y:
+    Math.max(7, luff.y - t*10) +
+    Math.cos(genoaFlapPhase * 0.75) * genoaFlap * 3,
+
+  z:
+    luff.z + aft.z +
+    Math.cos(rad(localAngle + 90 * d.genoaSideSign)) * genoaFlapAmount
+};
+      genoaStripes.push({luff, leech, t, angle:localAngle});
+    }
+
+    const clew = genoaStripes[0].leech;
+
+    const hullDeck = [
+      {x:0,y:0,z:162},
+      {x:24,y:0,z:136},
+      {x:34,y:0,z:88},
+      {x:40,y:0,z:20},
+      {x:34,y:0,z:-92},
+      {x:20,y:0,z:-150},
+      {x:-20,y:0,z:-150},
+      {x:-34,y:0,z:-92},
+      {x:-40,y:0,z:20},
+      {x:-34,y:0,z:88},
+      {x:-24,y:0,z:136}
+    ];
+    const hullBottom = [
+      {x:0,y:-18,z:150},
+      {x:10,y:-24,z:55},
+      {x:11,y:-28,z:-55},
+      {x:8,y:-18,z:-150},
+      {x:-8,y:-18,z:-150},
+      {x:-11,y:-28,z:-55},
+      {x:-10,y:-24,z:55}
+    ];
+
+    const cockpit = [
+      {x:18,y:2,z:-48},
+      {x:18,y:2,z:-108},
+      {x:-18,y:2,z:-108},
+      {x:-18,y:2,z:-48}
+    ];
+    const cabin = [
+      {x:14,y:8,z:10},
+      {x:12,y:8,z:-36},
+      {x:-12,y:8,z:-36},
+      {x:-14,y:8,z:10}
+    ];
+    const travelerLeft = {x:-24,y:3,z:-58};
+    const travelerRight = {x:24,y:3,z:-58};
+
+    const wheelCenter = {x:0,y:8,z:-100};
+    const rudderTop = {x:0,y:0,z:-154};
+    const rudderBottom = {x:0,y:-22,z:-166};
+
+    const genoaTrackPortStart = {x:-27,y:2,z:70};
+    const genoaTrackPortEnd = {x:-29,y:2,z:-20};
+    const genoaTrackStbdStart = {x:27,y:2,z:70};
+    const genoaTrackStbdEnd = {x:29,y:2,z:-20};
+
+    const portCar = {
+      x: lerp(genoaTrackPortStart.x, genoaTrackPortEnd.x, state.genoaPortCar/100),
+      y: 2,
+      z: lerp(genoaTrackPortStart.z, genoaTrackPortEnd.z, state.genoaPortCar/100)
+    };
+    const stbdCar = {
+      x: lerp(genoaTrackStbdStart.x, genoaTrackStbdEnd.x, state.genoaStbdCar/100),
+      y: 2,
+      z: lerp(genoaTrackStbdStart.z, genoaTrackStbdEnd.z, state.genoaStbdCar/100)
+    };
+
+    const winchPort = {x:-24,y:7,z:-92};
+    const winchStbd = {x:24,y:7,z:-92};
+
+    const pianoPoints = {
+      halyard:{x:15,y:5,z:-22},
+      reef1:{x:15,y:5,z:-28},
+      reef2:{x:15,y:5,z:-34},
+      vang:{x:15,y:5,z:-40},
+      outhaul:{x:15,y:5,z:-46},
+      furl:{x:15,y:5,z:-52}
+    };
+    const mastExit = {x:4,y:4,z:16};
+    const vangDeck = {x:8,y:4,z:-8};
+    const reefLead = {x:6,y:4,z:-10};
+    const furlerDeck = {x:12,y:3,z:116};
+
+    return {
+      tack, head, mastTop, mastBase, mainStripes, mainClewBase,
+      bowTack, headstayTop, genoaStripes, clew,
+      hullDeck, hullBottom, cockpit, cabin,
+      travelerLeft, travelerRight, wheelCenter, rudderTop, rudderBottom,
+      genoaTrackPortStart, genoaTrackPortEnd, genoaTrackStbdStart, genoaTrackStbdEnd,
+      portCar, stbdCar, winchPort, winchStbd,
+      pianoPoints, mastExit, vangDeck, reefLead, furlerDeck
+    };
+  }
+
+  function telltaleColor(err, windward=false){
+    if (err < 7) return '#9cff6d';
+    if (err < 15) return windward ? '#ffd166' : '#9cff6d';
+    return windward ? '#ff8b7d' : '#ffd166';
+  }
+  function telltaleFlow(actualAngle, idealAngle){
+  const diff = Math.abs(actualAngle) - idealAngle;
+  const err = Math.abs(diff);
+
+  const ok = '#9cff6d';
+  const warn = '#ffd166';
+  const bad = '#ff8b7d';
+
+  const unstableColor = err < 12 ? warn : bad;
+  const stableLen = 10;
+  const unstableLen = err < 12 ? 6 : 4;
+
+  const stableFlutter = 1.3;
+  const unstableFlutter = clamp(err * 0.9, 6, 20);
+
+  const flow = {
+    windwardColor: ok,
+    leewardColor: ok,
+    windwardLen: stableLen,
+    leewardLen: stableLen,
+    windwardFlutter: stableFlutter,
+    leewardFlutter: stableFlutter,
+    windwardWidth: 2,
+    leewardWidth: 2
+  };
+
+  if (err < 5) return flow;
+
+  // actualAngle más abierto que el ideal:
+  // vela demasiado abierta / falta ataque: falla barlovento.
+  if (diff > 0) {
+    flow.windwardColor = unstableColor;
+    flow.windwardLen = unstableLen;
+    flow.windwardFlutter = unstableFlutter;
+    flow.windwardWidth = 2.6;
+  }
+
+  // actualAngle más cerrado que el ideal:
+  // vela demasiado cerrada / flujo saturado: falla sotavento.
+  if (diff < 0) {
+    flow.leewardColor = unstableColor;
+    flow.leewardLen = unstableLen;
+    flow.leewardFlutter = unstableFlutter;
+    flow.leewardWidth = 2.6;
+  }
+
+  return flow;
+}
+
+function idealMainTelltaleAngle(d, t){
+  // t = altura de la lanita: 0 abajo, 1 arriba.
+  // La parte baja busca el ángulo base; la parte alta necesita más apertura por twist.
+  const baseAngle = clamp(
+    d.maxOpen * 0.80 + d.mainCamber * 0.06,
+    5,
+    80
+  );
+
+  const idealTwist = clamp(
+    5
+    + d.awa * 0.075
+    + state.windSpeed * 0.10
+    + state.reefLevel * 1.2,
+    5,
+    24
+  );
+
+  return clamp(
+    baseAngle + idealTwist * Math.pow(t, 1.18),
+    5,
+    88
+  );
+}
+
+function idealGenoaTelltaleAngle(d, t){
+  // La génova necesita algo más de apertura que la mayor.
+  // La parte alta exige más twist, especialmente con viento y con génova enrollada.
+  const baseAngle = clamp(
+    d.maxOpen * 0.90 + d.genoaCamber * 0.05,
+    6,
+    88
+  );
+
+  const idealTwist = clamp(
+    5
+    + d.awa * 0.065
+    + state.windSpeed * 0.08
+    + state.furler * 0.045,
+    4,
+    21
+  );
+
+  return clamp(
+    baseAngle + idealTwist * Math.pow(t, 1.20),
+    6,
+    96
+  );
+}
+  function drawWater(center, mode){
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    ctx.save();
+    ctx.clearRect(0,0,w,h);
+
+    // soft water stripes
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    const spacing = mode === 'top' ? 34 : 42;
+    for (let y = -20; y < h + 20; y += spacing){
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.quadraticCurveTo(w*0.35, y+8, w, y-2);
+      ctx.stroke();
+    }
+
+    // crosshair
+// En la vista desde la rueda no lo mostramos, porque rompe la sensación real.
+if (mode !== 'helm') {
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.setLineDash([6,6]);
+  ctx.beginPath();
+  ctx.moveTo(center.x, 0); ctx.lineTo(center.x, h);
+  ctx.moveTo(0, center.y); ctx.lineTo(w, center.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+    if (mode === 'top'){
+      drawText('N', {x:center.x, y:center.y-218}, 'rgba(255,255,255,.85)', 'center', 12);
+      drawText('S', {x:center.x, y:center.y+218}, 'rgba(255,255,255,.85)', 'center', 12);
+      drawText('E', {x:center.x+218, y:center.y}, 'rgba(255,255,255,.85)', 'center', 12);
+      drawText('W', {x:center.x-218, y:center.y}, 'rgba(255,255,255,.85)', 'center', 12);
+    }
+    ctx.restore();
+  }
+
+  function drawHull(g, center, mode, autoYaw){
+    const deckPts = g.hullDeck.map(p => pointLocalToScreen(p, center, mode, state.heading, autoYaw));
+    const keelPts = g.hullBottom.map(p => pointLocalToScreen(p, center, mode, state.heading, autoYaw));
+    drawPath(deckPts, {close:true, fill:'rgba(242,246,252,0.92)', stroke:'#234', lineWidth:1.8});
+    drawPath(keelPts, {close:true, fill:'rgba(18,34,46,0.45)', stroke:'rgba(15,26,36,.45)', lineWidth:1});
+
+    // outline lines
+    for(let i=0;i<Math.min(deckPts.length, keelPts.length);i++){
+      drawLine(deckPts[i], keelPts[i], 'rgba(17,37,52,.35)', 1);
+    }
+
+    // cabin, cockpit
+    const cabinPts = g.cabin.map(p => pointLocalToScreen(p, center, mode, state.heading, autoYaw));
+    drawPath(cabinPts, {close:true, fill:'rgba(220,230,240,.88)', stroke:'#355266', lineWidth:1.2});
+    const cockpitPts = g.cockpit.map(p => pointLocalToScreen(p, center, mode, state.heading, autoYaw));
+    drawPath(cockpitPts, {close:true, fill:'rgba(40,50,60,.9)', stroke:'#95a7b7', lineWidth:1.1});
+
+    const travL = pointLocalToScreen(g.travelerLeft, center, mode, state.heading, autoYaw);
+    const travR = pointLocalToScreen(g.travelerRight, center, mode, state.heading, autoYaw);
+    drawLine(travL, travR, '#7e8fa0', 3);
+
+    const wCenter = pointLocalToScreen(g.wheelCenter, center, mode, state.heading, autoYaw);
+    const radius = mode === 'helm' ? 130 : mode === 'top' ? 13 : 16;
+    drawCircle(wCenter, radius, null, '#263847', 7);
+    for(let i=0;i<6;i++){
+      const a = rad(state.wheel + i*60);
+      const p = {x: wCenter.x + Math.cos(a)*radius, y: wCenter.y + Math.sin(a)*radius};
+      drawLine(wCenter, p, '#263847', 4);
+    }
+
+    const rudTop = pointLocalToScreen(g.rudderTop, center, mode, state.heading, autoYaw);
+    const rudBot = pointLocalToScreen(g.rudderBottom, center, mode, state.heading, autoYaw);
+    drawLine(rudTop, rudBot, '#2e4758', 3);
+  }
+
+ function drawRiggingAndDeckLines(g, d, center, mode, autoYaw){
+    const mastBase = pointLocalToScreen(g.mastBase, center, mode, state.heading, autoYaw);
+    const mastTop = pointLocalToScreen(g.mastTop, center, mode, state.heading, autoYaw);
+    const headstayTop = pointLocalToScreen(g.headstayTop, center, mode, state.heading, autoYaw);
+    const bow = pointLocalToScreen(g.bowTack, center, mode, state.heading, autoYaw);
+
+    drawLine(mastBase, mastTop, '#33414d', 5);
+    drawLine(headstayTop, bow, 'rgba(255,255,255,.95)', 2.1);
+    const backstayTop = pointLocalToScreen({x:0,y:160,z:24}, center, mode, state.heading, autoYaw);
+    const stern = pointLocalToScreen({x:0,y:4,z:-150}, center, mode, state.heading, autoYaw);
+    drawLine(backstayTop, stern, 'rgba(255,255,255,.8)', 1.8);
+
+    const spreaderL = pointLocalToScreen({x:-24,y:104,z:22}, center, mode, state.heading, autoYaw);
+    const spreaderR = pointLocalToScreen({x:24,y:104,z:22}, center, mode, state.heading, autoYaw);
+    const spreaderMid = pointLocalToScreen({x:0,y:104,z:22}, center, mode, state.heading, autoYaw);
+    drawLine(spreaderL, spreaderR, '#cad2db', 2);
+    drawLine(spreaderL, pointLocalToScreen({x:-30,y:0,z:-6}, center, mode, state.heading, autoYaw), '#cad2db', 1.2);
+    drawLine(spreaderR, pointLocalToScreen({x:30,y:0,z:-6}, center, mode, state.heading, autoYaw), '#cad2db', 1.2);
+
+    // Genoa tracks and cars
+    const gp1 = pointLocalToScreen(g.genoaTrackPortStart, center, mode, state.heading, autoYaw);
+    const gp2 = pointLocalToScreen(g.genoaTrackPortEnd, center, mode, state.heading, autoYaw);
+    const gs1 = pointLocalToScreen(g.genoaTrackStbdStart, center, mode, state.heading, autoYaw);
+    const gs2 = pointLocalToScreen(g.genoaTrackStbdEnd, center, mode, state.heading, autoYaw);
+    drawLine(gp1, gp2, 'rgba(140,190,220,.85)', 3);
+    drawLine(gs1, gs2, 'rgba(140,190,220,.85)', 3);
+
+    const portCar = pointLocalToScreen(g.portCar, center, mode, state.heading, autoYaw);
+    const stbdCar = pointLocalToScreen(g.stbdCar, center, mode, state.heading, autoYaw);
+    drawCircle(portCar, 4.8, '#40c4ff', '#0b3142', 1);
+    drawCircle(stbdCar, 4.8, '#40c4ff', '#0b3142', 1);
+
+    const winchP = pointLocalToScreen(g.winchPort, center, mode, state.heading, autoYaw);
+    const winchS = pointLocalToScreen(g.winchStbd, center, mode, state.heading, autoYaw);
+    drawCircle(winchP, 7, '#203b4a', '#9fdfff', 1.4);
+    drawCircle(winchS, 7, '#203b4a', '#9fdfff', 1.4);
+
+    // Piano lines and labels mostly useful in top/auto
+    const mastExit = pointLocalToScreen(g.mastExit, center, mode, state.heading, autoYaw);
+    const hal = pointLocalToScreen(g.pianoPoints.halyard, center, mode, state.heading, autoYaw);
+    const r1 = pointLocalToScreen(g.pianoPoints.reef1, center, mode, state.heading, autoYaw);
+    const r2 = pointLocalToScreen(g.pianoPoints.reef2, center, mode, state.heading, autoYaw);
+    const vang = pointLocalToScreen(g.pianoPoints.vang, center, mode, state.heading, autoYaw);
+    const out = pointLocalToScreen(g.pianoPoints.outhaul, center, mode, state.heading, autoYaw);
+    const furl = pointLocalToScreen(g.pianoPoints.furl, center, mode, state.heading, autoYaw);
+
+    const vangDeck = pointLocalToScreen(g.vangDeck, center, mode, state.heading, autoYaw);
+    const furlerDeck = pointLocalToScreen(g.furlerDeck, center, mode, state.heading, autoYaw);
+
+    drawLine(mastExit, hal, '#ffd166', 2);
+    drawLine(mastExit, r1, '#ffd166', 2);
+    drawLine(mastExit, r2, '#ffd166', 2);
+    drawLine(vangDeck, vang, '#ffd166', 2);
+     const outhaulLineStart = pointLocalToScreen(g.mainClewBase,center,mode,state.heading,autoYaw
+);
+
+const outhaulLineWidth = lerp(1.4, 3.2, state.outhaul / 100);
+const outhaulLineColor =
+  state.outhaul > 65 ? '#ffe08a' : 'rgba(255,209,102,.55)';
+const outhaulDash =
+  state.outhaul < 35 ? [6, 5] : [];
+
+drawLine(outhaulLineStart,out,outhaulLineColor,outhaulLineWidth,outhaulDash
+);
+    drawLine(furlerDeck, furl, '#40c4ff', 2);
+
+    if (mode === 'top' || mode === 'free'){
+      drawText('Driza', {x:hal.x+16, y:hal.y}, '#fff', 'left', 10, 'rgba(0,0,0,.38)');
+      drawText('R1', {x:r1.x+16, y:r1.y}, '#fff', 'left', 10, 'rgba(0,0,0,.38)');
+      drawText('R2', {x:r2.x+16, y:r2.y}, '#fff', 'left', 10, 'rgba(0,0,0,.38)');
+      drawText('Contra', {x:vang.x+18, y:vang.y}, '#fff', 'left', 10, 'rgba(0,0,0,.38)');
+      drawText('Pajarín', {x:out.x+20, y:out.y}, '#fff', 'left', 10, 'rgba(0,0,0,.38)');
+      drawText('Enrollador', {x:furl.x+30, y:furl.y}, '#fff', 'left', 10, 'rgba(0,0,0,.38)');
+
+      drawText('Winch babor', {x:winchP.x-14, y:winchP.y+18}, '#d7f4ff', 'right', 10, 'rgba(0,0,0,.35)');
+      drawText('Winch estribor', {x:winchS.x+14, y:winchS.y+18}, '#d7f4ff', 'left', 10, 'rgba(0,0,0,.35)');
+    }
+  }
+
+ function drawMainSail(g, d, center, mode, autoYaw) {
+
+function mainCamberPoint(stripe, h) {
+    // h = posición desde el grátil hacia la baluma.
+    // 0 = junto al mástil; 1 = baluma.
+    // La máxima bolsa se sitúa aproximadamente hacia el 45% de la cuerda.
+
+    const lowerSailFactor = lerp(1.45, 0.35, stripe.t);
+    const autoBoost = mode === 'free' ? 2.05 : 1.25;
+    const draftShape = Math.sin(Math.PI * h);
+
+    const camberAmount =
+      d.mainCamber *
+      lowerSailFactor *
+      autoBoost *
+      draftShape;
+
+    const flap = d.mainFlap || 0;
+
+    // El flameo aumenta hacia la baluma.
+    // En el grátil casi no se mueve; en la salida de la vela sí.
+    const leechFactor = Math.pow(h, 1.7);
+    const heightFactor = lerp(0.65, 1.25, stripe.t);
+
+    const flapPhase =
+      performance.now() * 0.018 +
+      stripe.t * 12 +
+      h * 7;
+
+    const flapAmount =
+      Math.sin(flapPhase) *
+      flap *
+      leechFactor *
+      heightFactor *
+      9;
+
+    return {
+      x:
+        lerp(stripe.luff.x, stripe.leech.x, h) +
+        Math.sin(rad(stripe.angle + 90 * d.sailSign)) * (camberAmount + flapAmount),
+
+      y:
+        lerp(stripe.luff.y, stripe.leech.y, h) +
+        Math.cos(flapPhase * 0.7) * flap * leechFactor * 2.5,
+
+      z:
+        lerp(stripe.luff.z, stripe.leech.z, h) +
+        Math.cos(rad(stripe.angle + 90 * d.sailSign)) * (camberAmount + flapAmount)
+    };
+  }
+
+  function toScreen(p) {
+    return pointLocalToScreen(
+      p,
+      center,
+      mode,
+      state.heading,
+      autoYaw
+    );
+  }
+
+  // Si la mayor no está izada, no dibujamos la vela.
+// Mantenemos la botavara y la escota para que el barco no pierda estructura.
+if (state.mainHalyard <= 2) {
+  const tack = toScreen(g.tack);
+  const clew = toScreen(g.mainClewBase);
+
+  drawLine(tack, clew, '#454c55', 4.6);
+
+  const sheetPoint = toScreen(g.mainClewBase);
+
+  const tMidLocal = {
+    x: lerp(
+      g.travelerLeft.x,
+      g.travelerRight.x,
+      clamp(0.5 + state.mainTraveler / 90, 0, 1)
+    ),
+    y: g.travelerLeft.y,
+    z: g.travelerLeft.z
+  };
+
+  const tMid = toScreen(tMidLocal);
+
+  drawLine(sheetPoint, tMid, '#ffd166', 2.6);
+
+  return;
+}
+
+  // ------------------------------------------------------------
+  // 1. PINTAMOS LA VELA COMO SUPERFICIE CON BOLSA
+  // ------------------------------------------------------------
+  // Antes se pintaba como un polígono plano.
+  // Ahora se pinta por paneles, usando los mismos puntos curvados
+  // que usan las líneas de bolsa.
+
+  const chordStations = [0, 0.10, 0.20, 0.32, 0.45, 0.58, 0.72, 0.86, 1];
+
+  for (let i = 0; i < g.mainStripes.length - 1; i++) {
+    const lowerStripe = g.mainStripes[i];
+    const upperStripe = g.mainStripes[i + 1];
+
+    for (let j = 0; j < chordStations.length - 1; j++) {
+      const h0 = chordStations[j];
+      const h1 = chordStations[j + 1];
+
+      const p1 = toScreen(mainCamberPoint(lowerStripe, h0));
+      const p2 = toScreen(mainCamberPoint(lowerStripe, h1));
+      const p3 = toScreen(mainCamberPoint(upperStripe, h1));
+      const p4 = toScreen(mainCamberPoint(upperStripe, h0));
+
+      const mainFlapVisual = d.mainFlap || 0;
+const mainFillAlpha = 0.64 - mainFlapVisual * 0.12;
+
+drawPath([p1, p2, p3, p4], {
+  close: true,
+  fill: 'rgba(255,255,255,' + mainFillAlpha + ')'
+});
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 2. CONTORNO DE LA MAYOR
+  // ------------------------------------------------------------
+
+  const luffs = g.mainStripes.map(s =>
+    toScreen(mainCamberPoint(s, 0))
+  );
+
+  const leech = g.mainStripes.map(s =>
+    toScreen(mainCamberPoint(s, 1))
+  );
+
+  const outline = [...luffs, ...leech.slice().reverse()];
+
+  const mainFlapVisualOutline = d.mainFlap || 0;
+
+drawSmoothPath(outline, {
+  close: true,
+  stroke: mainFlapVisualOutline > 0.25
+    ? 'rgba(255,139,125,0.38)'
+    : 'rgba(255,255,255,0.95)',
+  lineWidth: 1.5 + mainFlapVisualOutline * 0.45
+});
+
+  // ------------------------------------------------------------
+  // 3. COSTURAS HORIZONTALES CON BOLSA
+  // ------------------------------------------------------------
+
+  for (let i = 1; i < g.mainStripes.length - 1; i++) {
+    const s = g.mainStripes[i];
+
+    const p0 = toScreen(mainCamberPoint(s, 0));
+    const p1 = toScreen(mainCamberPoint(s, 0.45));
+    const p2 = toScreen(mainCamberPoint(s, 1));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, p2.x, p2.y);
+    ctx.strokeStyle = mode === 'free'
+      ? 'rgba(90,110,130,.70)'
+      : 'rgba(90,110,130,.50)';
+    ctx.lineWidth = mode === 'free' ? 1.7 : 1.2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ------------------------------------------------------------
+  // 4. LÍNEAS LONGITUDINALES PARA LEER EL VOLUMEN
+  // ------------------------------------------------------------
+
+  if (mode === 'free' || mode === 'top') {
+    for (const h of [0.25, 0.45, 0.65]) {
+      const pts = g.mainStripes.map(s =>
+        toScreen(mainCamberPoint(s, h))
+      );
+
+      drawPath(pts, {
+        stroke: mode === 'free'
+          ? 'rgba(255,209,102,.42)'
+          : 'rgba(90,110,130,.28)',
+        lineWidth: mode === 'free' ? 1.5 : 1
+      });
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 5. INDICADOR VISUAL DE BOLSA
+  // ------------------------------------------------------------
+
+  if (mode === 'free' && d.mainCamber > 7) {
+    const lowerStripe = g.mainStripes[Math.floor(g.mainStripes.length * 0.30)];
+
+    const draftPoint = toScreen(
+      mainCamberPoint(lowerStripe, 0.45)
+    );
+
+    drawCircle(
+      draftPoint,
+      clamp(d.mainCamber * 0.16, 2.5, 5.8),
+      'rgba(255,209,102,.55)',
+      'rgba(255,209,102,.95)',
+      1
+    );
+
+    drawText(
+      'bolsa',
+      { x: draftPoint.x + 12, y: draftPoint.y },
+      '#fff',
+      'left',
+      10,
+      'rgba(0,0,0,.35)'
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 6. BOTAVARA
+  // ------------------------------------------------------------
+
+  const tack = toScreen(g.tack);
+  const clew = toScreen(g.mainClewBase);
+
+  drawLine(tack, clew, '#454c55', 4.6);
+
+  // ------------------------------------------------------------
+  // 7. ESCOTA DE MAYOR AL CARRO
+  // ------------------------------------------------------------
+
+  const sheetPoint = toScreen(g.mainClewBase);
+
+  const tMidLocal = {
+    x: lerp(
+      g.travelerLeft.x,
+      g.travelerRight.x,
+      clamp(0.5 + state.mainTraveler / 90, 0, 1)
+    ),
+    y: g.travelerLeft.y,
+    z: g.travelerLeft.z
+  };
+
+  const tMid = toScreen(tMidLocal);
+
+  drawLine(sheetPoint, tMid, '#ffd166', 2.6);
+
+  // ------------------------------------------------------------
+  // 8. CATAVIENTOS SIGUIENDO LA BOLSA
+  // ------------------------------------------------------------
+
+  const flutter = Math.sin(performance.now() * 0.009) * 1.5;
+
+  const mainTelltaleLevels = [
+    { name: 'baja', t: 0.25, h: 0.20 },
+    { name: 'media', t: 0.50, h: 0.20 },
+    { name: 'superior', t: 0.75, h: 0.20 }
+  ];
+
+  for (const level of mainTelltaleLevels) {
+    const idx = Math.round((g.mainStripes.length - 1) * level.t);
+    const stripe = g.mainStripes[idx];
+
+    const base = mainCamberPoint(stripe, level.h);
+    const b = toScreen(base);
+
+    const idealAngle = idealMainTelltaleAngle(d, stripe.t);
+    const flow = telltaleFlow(stripe.angle, idealAngle);
+
+    const windwardAngle =
+      stripe.angle - 26 * d.sailSign + flutter * flow.windwardFlutter;
+
+    const leewardAngle =
+      stripe.angle + 26 * d.sailSign - flutter * flow.leewardFlutter;
+
+    const windwardEnd = toScreen(
+      vAdd(base, vecFromAft(windwardAngle, flow.windwardLen))
+    );
+
+    const leewardEnd = toScreen(
+      vAdd(base, vecFromAft(leewardAngle, flow.leewardLen))
+    );
+
+    drawLine(b, windwardEnd, flow.windwardColor, flow.windwardWidth);
+    drawLine(b, leewardEnd, flow.leewardColor, flow.leewardWidth);
+  }
+}
+ 
+function drawGenoa(g, d, center, mode, autoYaw){
+  if (state.genoaHalyard <= 2) return;
+    const luffs = g.genoaStripes.map(s => pointLocalToScreen(s.luff, center, mode, state.heading, autoYaw));
+    const leech = g.genoaStripes.map(s => pointLocalToScreen(s.leech, center, mode, state.heading, autoYaw));
+    const poly = [...luffs, ...leech.slice().reverse()];
+   const genoaFlapVisual = d.genoaFlap || 0;
+const genoaFillAlpha = 0.62 - genoaFlapVisual * 0.12;
+
+drawSmoothPath(poly, {
+  close: true,
+  fill: 'rgba(245,250,255,' + genoaFillAlpha + ')',
+  stroke: genoaFlapVisual > 0.25
+    ? 'rgba(255,139,125,0.42)'
+    : 'rgba(255,255,255,0.95)',
+  lineWidth: 1.5 + genoaFlapVisual * 0.45
+});
+
+    // Costuras con curvatura (Camber) dinámica para la génova
+    for(let i=1;i<g.genoaStripes.length-1;i++){
+        const s = g.genoaStripes[i];
+        // Ahora usamos el valor calculado en derived
+        const gCamber = d.genoaCamber;                   
+        const midLocal = {
+            x: lerp(s.luff.x, s.leech.x, 0.5) + Math.sin(rad(s.angle + 90 * d.genoaSideSign)) * (gCamber * 0.4),
+            y: lerp(s.luff.y, s.leech.y, 0.5),
+            z: lerp(s.luff.z, s.leech.z, 0.5) + Math.cos(rad(s.angle + 90 * d.genoaSideSign)) * (gCamber * 0.4)
+        };
+        const mid = pointLocalToScreen(midLocal, center, mode, state.heading, autoYaw);
+        
+        ctx.beginPath();
+        ctx.moveTo(luffs[i].x, luffs[i].y);
+        ctx.quadraticCurveTo(mid.x, mid.y, leech[i].x, leech[i].y);
+        ctx.strokeStyle = 'rgba(92,110,130,.4)';
+        ctx.stroke();
+    }
+
+
+    const clew = pointLocalToScreen(g.clew, center, mode, state.heading, autoYaw);
+    const portCar = pointLocalToScreen(g.portCar, center, mode, state.heading, autoYaw);
+    const stbdCar = pointLocalToScreen(g.stbdCar, center, mode, state.heading, autoYaw);
+    const winchP = pointLocalToScreen(g.winchPort, center, mode, state.heading, autoYaw);
+    const winchS = pointLocalToScreen(g.winchStbd, center, mode, state.heading, autoYaw);
+
+    drawLine(clew, portCar, '#40c4ff', 2.5);
+    drawLine(portCar, winchP, '#40c4ff', 2.2);
+
+    drawLine(clew, stbdCar, 'rgba(64,196,255,.55)', 2, [6,5]);
+    drawLine(stbdCar, winchS, 'rgba(64,196,255,.55)', 1.8, [6,5]);
+
+    // If sail on starboard side, swap emphasis
+    const flutterG = Math.sin(performance.now() * 0.0105) * 1.3;
+
+const genoaTelltaleLevels = [
+  { name: 'baja', t: 0.25, h: 0.23 },
+  { name: 'media', t: 0.50, h: 0.23 },
+  { name: 'superior', t: 0.75, h: 0.23 }
+];
+
+for (const level of genoaTelltaleLevels) {
+  const idx = Math.round((g.genoaStripes.length - 1) * level.t);
+  const stripe = g.genoaStripes[idx];
+  const h = level.h;
+
+  const curveOffset =
+    (d.genoaCamber * 0.4) * (4 * h * (1 - h));
+
+  const angleOffset =
+    deg(Math.atan((d.genoaCamber * 0.4 / 60) * (4 * (1 - 2 * h)))) * d.genoaSideSign;
+
+  const base = {
+    x:
+      lerp(stripe.luff.x, stripe.leech.x, h)
+      + Math.sin(rad(stripe.angle + 90 * d.genoaSideSign)) * curveOffset,
+
+    y:
+      lerp(stripe.luff.y, stripe.leech.y, h),
+
+    z:
+      lerp(stripe.luff.z, stripe.leech.z, h)
+      + Math.cos(rad(stripe.angle + 90 * d.genoaSideSign)) * curveOffset
+  };
+
+  const b = pointLocalToScreen(
+    base,
+    center,
+    mode,
+    state.heading,
+    autoYaw
+  );
+
+  const actualAngle = stripe.angle + angleOffset;
+  const idealAngle = idealGenoaTelltaleAngle(d, stripe.t);
+  const flow = telltaleFlow(actualAngle, idealAngle);
+
+  const windwardAngle =
+    actualAngle - 22 * d.genoaSideSign + flutterG * flow.windwardFlutter;
+
+  const leewardAngle =
+    actualAngle + 22 * d.genoaSideSign - flutterG * flow.leewardFlutter;
+
+  const windwardEnd = pointLocalToScreen(
+    vAdd(base, vecFromAft(windwardAngle, flow.windwardLen)),
+    center,
+    mode,
+    state.heading,
+    autoYaw
+  );
+
+  const leewardEnd = pointLocalToScreen(
+    vAdd(base, vecFromAft(leewardAngle, flow.leewardLen)),
+    center,
+    mode,
+    state.heading,
+    autoYaw
+  );
+
+  drawLine(b, windwardEnd, flow.windwardColor, flow.windwardWidth);
+  drawLine(b, leewardEnd, flow.leewardColor, flow.leewardWidth);
+   }
+  }
+
+  function drawWindPennant(g, d, center, mode, autoYaw) {
+  // Grímpola / banderín de viento aparente en la cabeza del mástil.
+  // La parte fija va en el mástil; la tela se extiende hacia sotavento.
+
+  const apparentWindSpeed = d.aws ?? state.windSpeed;
+  const windFactor = clamp(apparentWindSpeed / 24, 0, 1);
+
+  // Punto de montaje en cabeza de mástil.
+  const mastHead = g.mastTop;
+
+  const staffBaseLocal = {
+    x: mastHead.x,
+    y: mastHead.y + 1,
+    z: mastHead.z
+  };
+
+  const staffTopLocal = {
+    x: mastHead.x,
+    y: mastHead.y + 12,
+    z: mastHead.z
+  };
+
+  const staffBase = pointLocalToScreen(
+    staffBaseLocal,
+    center,
+    mode,
+    state.heading,
+    autoYaw
+  );
+
+  const staffTop = pointLocalToScreen(
+    staffTopLocal,
+    center,
+    mode,
+    state.heading,
+    autoYaw
+  );
+
+  // Varilla corta de la grímpola.
+  drawLine(staffBase, staffTop, 'rgba(245,248,252,0.96)', 1.6);
+
+  // d.rel representa el viento aparente relativo al barco.
+  // La grímpola no apunta hacia donde viene el viento, sino hacia donde escapa:
+  // se extiende a sotavento. Con -d.rel queda coherente con la geometría del simulador.
+  const apparentDownwindAngle = -d.rel;
+
+  const now = performance.now();
+
+  const flagLen = lerp(18, 34, windFactor);
+  const flagHalfHeight = lerp(4.2, 6.8, windFactor);
+
+  const segments = 9;
+  const upperEdge = [];
+  const lowerEdge = [];
+  const centerLine = [];
+
+  for (let i = 0; i <= segments; i++) {
+    const u = i / segments;
+
+    // La onda crece hacia la punta libre.
+    const freeEndFactor = Math.pow(u, 1.35);
+
+    // Dos ondas superpuestas: evita que parezca una pieza rígida.
+    const waveA =
+      Math.sin(now * 0.018 + u * 6.2) *
+      freeEndFactor *
+      lerp(0.8, 3.6, windFactor);
+
+    const waveB =
+      Math.sin(now * 0.041 + u * 10.7) *
+      freeEndFactor *
+      lerp(0.2, 1.4, windFactor);
+
+    const lateralWave = waveA + waveB;
+
+    // Línea central del banderín.
+    const along = vecFromAft(apparentDownwindAngle, flagLen * u);
+
+    // Desplazamiento lateral respecto al flujo.
+    const side = vecFromAft(apparentDownwindAngle + 90, lateralWave);
+
+    const centerPoint = {
+      x: staffTopLocal.x + along.x + side.x,
+      y:
+        staffTopLocal.y +
+        Math.sin(now * 0.024 + u * 5.5) *
+          freeEndFactor *
+          lerp(0.2, 1.4, windFactor),
+      z: staffTopLocal.z + along.z + side.z
+    };
+
+    // Forma de grímpola: más alta junto al mástil y más estrecha hacia la punta.
+    const taper = 1 - u * 0.86;
+    const localHalfHeight = flagHalfHeight * taper;
+
+    const upper = {
+      x: centerPoint.x,
+      y: centerPoint.y + localHalfHeight,
+      z: centerPoint.z
+    };
+
+    const lower = {
+      x: centerPoint.x,
+      y: centerPoint.y - localHalfHeight,
+      z: centerPoint.z
+    };
+
+    centerLine.push(centerPoint);
+    upperEdge.push(upper);
+    lowerEdge.push(lower);
+  }
+
+  const upperScreen = upperEdge.map(p =>
+    pointLocalToScreen(p, center, mode, state.heading, autoYaw)
+  );
+
+  const lowerScreen = lowerEdge.map(p =>
+    pointLocalToScreen(p, center, mode, state.heading, autoYaw)
+  );
+
+  const centerScreen = centerLine.map(p =>
+    pointLocalToScreen(p, center, mode, state.heading, autoYaw)
+  );
+
+  const flagPoly = [
+    ...upperScreen,
+    ...lowerScreen.slice().reverse()
+  ];
+
+  // Paño de la grímpola.
+  drawSmoothPath(flagPoly, {
+    close: true,
+    fill: 'rgba(255,78,78,0.92)',
+    stroke: 'rgba(255,230,230,0.92)',
+    lineWidth: 1.1
+  });
+
+  // Borde de ataque junto a la varilla.
+  drawLine(
+    upperScreen[0],
+    lowerScreen[0],
+    'rgba(255,245,245,0.95)',
+    1.3
+  );
+
+  // Línea suave central para dar sensación de tela.
+  drawSmoothPath(centerScreen, {
+    stroke: 'rgba(255,210,210,0.55)',
+    lineWidth: 0.8
+  });
+
+  // Pequeño punto de unión al mástil.
+  drawCircle(
+    staffTop,
+    2.2,
+    'rgba(255,255,255,0.95)',
+    'rgba(80,90,100,0.8)',
+    0.8
+  );
+}
+
+  function drawWindArrowOnCanvas(center){
+    const len = 115;
+    const from = rad(state.windDir);
+    const x = center.x + Math.sin(from) * len;
+    const y = center.y - Math.cos(from) * len;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,107,107,.95)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(center.x, center.y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    const headLen = 14;
+    const ang = Math.atan2(y-center.y, x-center.x);
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x - Math.cos(ang - Math.PI/6)*headLen, y - Math.sin(ang - Math.PI/6)*headLen);
+    ctx.lineTo(x - Math.cos(ang + Math.PI/6)*headLen, y - Math.sin(ang + Math.PI/6)*headLen);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,107,107,.95)';
+    ctx.fill();
+    ctx.restore();
+
+    drawText(`Viento ${String(Math.round(state.windDir)).padStart(3,'0')}° · ${Math.round(state.windSpeed)} kt`,
+      {x:center.x, y:center.y-136}, '#fff', 'center', 11, 'rgba(0,0,0,.32)');
+  }
+
+  function render(){
+    const now = performance.now();
+    const d = derived(); 
+    
+    // 1. APLICAR INERCIA (El barco acelera poco a poco)
+    state.boatSpeed = lerp(state.boatSpeed, d.boatSpeed, 0.015);
+state.heelAngle = lerp(state.heelAngle, d.heelAngle, 0.08); 
+    
+    // 2. APLICAR GIRO
+    const turnRate = state.wheel * 0.006 * (0.7 + state.boatSpeed * 0.06);
+    state.heading = norm360(state.heading + turnRate);
+    
+    if (state.view === 'free') state.autoViewAngle = norm360(state.autoViewAngle + 0.25);
+
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const center = state.view === 'helm'
+  ? {x:w*0.50, y:h*0.80}
+  : {x:w*0.52, y:h*0.56};
+
+    drawWater(center, state.view);
+    const g = buildGeometry(d);
+
+    // 3. DIBUJAR EL BARCO Y LAS VELAS
+if (state.view === 'top'){
+  drawWindArrowOnCanvas(center);
+  drawHull(g, center, state.view, state.autoViewAngle);
+  drawRiggingAndDeckLines(g, d, center, state.view, state.autoViewAngle);
+  drawGenoa(g, d, center, state.view, state.autoViewAngle);
+  drawMainSail(g, d, center, state.view, state.autoViewAngle);
+} else {
+  drawHull(g, center, state.view, state.autoViewAngle);
+  drawRiggingAndDeckLines(g, d, center, state.view, state.autoViewAngle);
+
+  if (d.genoaSideSign < 0){
+    drawMainSail(g, d, center, state.view, state.autoViewAngle);
+    drawGenoa(g, d, center, state.view, state.autoViewAngle);
+  } else {
+    drawGenoa(g, d, center, state.view, state.autoViewAngle);
+    drawMainSail(g, d, center, state.view, state.autoViewAngle);
+  }
+}
+
+// Grímpola de viento aparente en cabeza de mástil.
+// Se dibuja al final para que quede visible por encima de jarcia y velas.
+drawWindPennant(g, d, center, state.view, state.autoViewAngle);
+
+
+    // 4. ACTUALIZAR EL PANEL DE DATOS (HUD)
+    const rel = d.rel;
+    const tackTxt = rel >= 0 ? 'Amura de estribor' : 'Amura de babor';
+    const courseOverGround = norm360(state.heading + d.leewayAngle);
+    
+    document.getElementById('windArrow').style.transform = `rotate(${state.windDir}deg)`;
+    document.getElementById('hudWindText').textContent = `${String(Math.round(state.windDir)).padStart(3,'0')}° · ${Math.round(state.windSpeed)} kt`;
+    document.getElementById('hudMain').textContent = tackTxt;
+    
+    document.getElementById('hudSub').innerHTML = 
+      `Rumbo ${Math.round(state.heading)}° (Efectivo: ${Math.round(courseOverGround)}°) · Vel. actual ${state.boatSpeed.toFixed(1)} kt<br>` +
+      `Twist mayor ${d.mainTwist.toFixed(0)}° · Bolsa mayor ${d.mainCamber.toFixed(0)} · Twist génova ${d.genoaTwist.toFixed(0)}°`;
+    requestAnimationFrame(render); } render(); })(); // Cierre de la función render
+
+ // Cierre del paquete principal
+</script>
+</body>
+</html>
+
+
+
